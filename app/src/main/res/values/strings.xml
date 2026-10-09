@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HOLOWAVE</string>
+    <string name="playback_channel">Lecture en cours</string>
+    <string name="favorite">Ajouter aux coups de cœur</string>
+    <string name="unfavorite">Retirer des coups de cœur</string>
+</resources>

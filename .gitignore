@@ -1,0 +1,11 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+.DS_Store
+# Signing secrets: keep a private backup, never commit them.
+keystore.properties
+*.jks
+*.keystore
