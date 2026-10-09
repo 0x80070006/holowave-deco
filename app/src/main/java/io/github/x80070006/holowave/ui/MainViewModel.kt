@@ -6,6 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.x80070006.holowave.HolowaveApp
 import io.github.x80070006.holowave.data.CollectionKind
+import io.github.x80070006.holowave.data.FolderNode
+import io.github.x80070006.holowave.data.SourceFolders
 import io.github.x80070006.holowave.data.Collections
 import io.github.x80070006.holowave.data.LibraryState
 import io.github.x80070006.holowave.data.MediaLibrary
@@ -37,6 +39,7 @@ sealed interface Route {
     data object Library : Route
     data class Detail(val kind: CollectionKind, val key: String) : Route
     data object Settings : Route
+    data object SourceFolders : Route
 }
 
 data class Catalog(
@@ -89,9 +92,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _messages = MutableStateFlow<String?>(null)
     val messages: StateFlow<String?> = _messages.asStateFlow()
 
-    val catalog: StateFlow<Catalog> = combine(app.library.state, app.playlists.state) { lib, col ->
-        if (lib is LibraryState.Ready) buildCatalog(lib, col) else Catalog()
+    private val sourceFolders = settings.map { it.sourceFolders }.distinctUntilChanged()
+
+    val catalog: StateFlow<Catalog> = combine(app.library.state, app.playlists.state, sourceFolders) { lib, col, folders ->
+        if (lib is LibraryState.Ready) buildCatalog(lib.filtered(folders), col) else Catalog()
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, Catalog())
+
+    /** Every music folder on the device, regardless of the current selection. */
+    val folderTree: StateFlow<List<FolderNode>> = app.library.state
+        .map { lib -> if (lib is LibraryState.Ready) SourceFolders.tree(lib.tracks) else emptyList() }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    /** Total number of indexed tracks before folder filtering. */
+    val allTrackCount: StateFlow<Int> = app.library.state
+        .map { (it as? LibraryState.Ready)?.tracks?.size ?: 0 }
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     val searchResults: StateFlow<List<Track>> = combine(catalog, _query) { c, q ->
         val needle = q.fold()
@@ -223,6 +239,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setOnlineLyrics(enabled: Boolean) = app.settings.setOnlineLyrics(enabled)
     fun setSpinningRecord(enabled: Boolean) = app.settings.setSpinningRecord(enabled)
 
+    fun toggleSourceFolder(path: String) =
+        app.settings.setSourceFolders(SourceFolders.toggle(path, settings.value.sourceFolders))
+
+    fun includeAllFolders() = app.settings.setSourceFolders(emptySet())
+
     fun importLyrics(uri: Uri) {
         val track = currentTrack.value ?: return
         viewModelScope.launch {
@@ -276,6 +297,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private fun String.fold(): String =
             Normalizer.normalize(this, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase(Locale.ROOT).trim()
+
+        private fun LibraryState.Ready.filtered(folders: Set<String>): LibraryState.Ready =
+            if (folders.isEmpty()) this
+            else LibraryState.Ready(tracks.filter { SourceFolders.includes(it.relativePath, folders) })
 
         private val byNumberThenTitle = compareBy<Track>({ it.trackNumber }, { it.title.lowercase() })
 

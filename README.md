@@ -35,6 +35,7 @@ La version 2 est une refonte complète de l'[ancienne HoloWave](https://github.c
 
 **Lecture**
 - Discothèque locale indexée via MediaStore, par **albums, artistes, dossiers, titres** et **playlists**
+- **Dossiers sources** au choix : un ou plusieurs dossiers (sous-dossiers inclus), par exemple seulement `Music/Jazz` et `Download/Vinyles`
 - Recherche instantanée (insensible aux accents)
 - File d'attente : *lire ensuite*, *ajouter à la file*, aléatoire, répétition (file / titre)
 - **Coups de cœur** et playlists, sauvegardés sur l'appareil
@@ -63,8 +64,8 @@ La version 2 est une refonte complète de l'[ancienne HoloWave](https://github.c
 | <img src="docs/screenshots/04-album.jpg" width="250"> | <img src="docs/screenshots/05-ecran-verrouillage.jpg" width="250"> | <img src="docs/screenshots/11-notification.jpg" width="250"> |
 | **Titres** | **Artistes** | **Actions** |
 | <img src="docs/screenshots/06-titres.jpg" width="250"> | <img src="docs/screenshots/07-artistes.jpg" width="250"> | <img src="docs/screenshots/08-actions.jpg" width="250"> |
-| **Réglages** | **Premier lancement** | |
-| <img src="docs/screenshots/09-reglages.jpg" width="250"> | <img src="docs/screenshots/10-accueil.jpg" width="250"> | |
+| **Réglages** | **Dossiers sources** | **Premier lancement** |
+| <img src="docs/screenshots/09-reglages.jpg" width="250"> | <img src="docs/screenshots/12-dossiers-sources.jpg" width="250"> | <img src="docs/screenshots/10-accueil.jpg" width="250"> |
 
 > La discothèque des captures est fictive : artistes, pochettes, musiques et paroles ont été créés pour la démo.
 
@@ -88,7 +89,7 @@ L'app est pensée pour être sûre par défaut (*secure by design*) :
 2. Ouvrez-le sur votre téléphone (autorisez l'installation depuis cette source si Android le demande).
 3. Au premier lancement, autorisez l'accès à « Musique et audio ».
 
-Mettez vos fichiers (MP3, FLAC, M4A, OGG, WAV…) dans le dossier **Musique** du téléphone : ils apparaissent automatiquement.
+Mettez vos fichiers (MP3, FLAC, M4A, OGG, WAV…) dans le dossier **Musique** du téléphone : ils apparaissent automatiquement. Pour n'afficher que certains dossiers, allez dans **Réglages → Dossiers sources**. Ce filtre ne demande aucune permission supplémentaire : il s'appuie sur l'index audio d'Android.
 
 **Astuce paroles :** pour avoir les paroles sans jamais toucher au réseau, intégrez-les dans vos fichiers (avec [Mp3tag](https://www.mp3tag.de/) ou [MusicBrainz Picard](https://picard.musicbrainz.org/)), ou importez un `.lrc` depuis l'écran des paroles.
 
@@ -98,7 +99,7 @@ Prérequis : JDK 17+ (le JBR d'Android Studio convient) et le SDK Android 37.
 
 ```bash
 ./gradlew assembleDebug          # APK de debug
-./gradlew testDebugUnitTest      # tests unitaires (LRC, ID3/FLAC, playlists)
+./gradlew testDebugUnitTest      # tests unitaires (LRC, ID3/FLAC, playlists, dossiers sources)
 ./gradlew assembleRelease        # APK signé si keystore.properties est présent
 ```
 
@@ -117,7 +118,7 @@ keyPassword=…
 app/src/main/java/io/github/x80070006/holowave/
 ├── HolowaveApp.kt            conteneur de dépendances (manuel, sans réflexion)
 ├── MainActivity.kt           permissions + point d'entrée Compose
-├── data/                     MediaStore, playlists (JSON atomique), réglages, pochettes
+├── data/                     MediaStore, dossiers sources, playlists (JSON atomique), réglages, pochettes
 ├── lyrics/
 │   ├── Lrc.kt                parseur LRC (horodatages multiples, offset, « enhanced »)
 │   ├── EmbeddedLyrics.kt     lecture des paroles ID3v2.3/2.4 et FLAC

@@ -10,6 +10,8 @@ data class AppSettings(
     val onlineLyrics: Boolean = true,
     /** Keep the record spinning animation (some people find it distracting). */
     val spinningRecord: Boolean = true,
+    /** Folders to index (MediaStore relative paths); empty means all of them. */
+    val sourceFolders: Set<String> = emptySet(),
 )
 
 class Settings(context: Context) {
@@ -19,6 +21,8 @@ class Settings(context: Context) {
         AppSettings(
             onlineLyrics = prefs.getBoolean(KEY_ONLINE_LYRICS, true),
             spinningRecord = prefs.getBoolean(KEY_SPINNING, true),
+            sourceFolders = prefs.getStringSet(KEY_FOLDERS, null).orEmpty()
+                .mapNotNull(SourceFolders::normalize).take(SourceFolders.MAX_SELECTED).toSet(),
         )
     )
     val state: StateFlow<AppSettings> = _state.asStateFlow()
@@ -33,8 +37,16 @@ class Settings(context: Context) {
         _state.value = _state.value.copy(spinningRecord = enabled)
     }
 
+    fun setSourceFolders(folders: Set<String>) {
+        val clean = folders.mapNotNull(SourceFolders::normalize).take(SourceFolders.MAX_SELECTED).toSet()
+        // getStringSet returns a live set: always store a fresh copy.
+        prefs.edit().putStringSet(KEY_FOLDERS, HashSet(clean)).apply()
+        _state.value = _state.value.copy(sourceFolders = clean)
+    }
+
     private companion object {
         const val KEY_ONLINE_LYRICS = "online_lyrics"
         const val KEY_SPINNING = "spinning_record"
+        const val KEY_FOLDERS = "source_folders"
     }
 }

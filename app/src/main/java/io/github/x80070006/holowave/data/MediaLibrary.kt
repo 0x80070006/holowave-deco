@@ -117,6 +117,7 @@ class MediaLibrary(private val resolver: ContentResolver, private val scope: Cor
                     trackNumber = c.getInt(iTrack) % 1000,
                     year = c.getInt(iYear),
                     folder = path.substringAfterLast('/').ifBlank { "Racine" },
+                    relativePath = if (path.isEmpty()) "" else "$path/",
                     dateAdded = c.getLong(iAdded),
                 )
             }

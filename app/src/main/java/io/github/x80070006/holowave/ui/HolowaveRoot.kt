@@ -59,6 +59,7 @@ import io.github.x80070006.holowave.ui.screens.LyricsScreen
 import io.github.x80070006.holowave.ui.screens.NowPlayingScreen
 import io.github.x80070006.holowave.ui.screens.PlayerCallbacks
 import io.github.x80070006.holowave.ui.screens.SettingsScreen
+import io.github.x80070006.holowave.ui.screens.SourceFoldersScreen
 import io.github.x80070006.holowave.ui.theme.Deco
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
@@ -117,6 +118,7 @@ fun HolowaveRoot(vm: MainViewModel) {
                     Route.Library -> LibraryScreen(
                         catalog = catalog,
                         loading = libraryState is LibraryState.Loading || libraryState is LibraryState.Idle,
+                        filtered = settings.sourceFolders.isNotEmpty(),
                         tab = tab, query = query, results = results, playback = playback,
                         bottomPadding = miniHeight,
                         cb = LibraryCallbacks(
@@ -156,7 +158,22 @@ fun HolowaveRoot(vm: MainViewModel) {
                         onCancelPrefetch = vm::cancelPrefetch,
                         onClearLyrics = vm::clearDownloadedLyrics,
                         onRescan = vm::rescan,
+                        onSourceFolders = { vm.open(Route.SourceFolders) },
                     )
+                    Route.SourceFolders -> {
+                        val tree by vm.folderTree.collectAsStateWithLifecycle()
+                        val total by vm.allTrackCount.collectAsStateWithLifecycle()
+                        SourceFoldersScreen(
+                            tree = tree,
+                            selected = settings.sourceFolders,
+                            shownTracks = catalog.tracks.size,
+                            totalTracks = total,
+                            bottomPadding = miniHeight,
+                            onBack = { vm.back() },
+                            onToggle = vm::toggleSourceFolder,
+                            onIncludeAll = vm::includeAllFolders,
+                        )
+                    }
                 }
             }
 

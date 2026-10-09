@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -55,6 +57,7 @@ fun SettingsScreen(
     onCancelPrefetch: () -> Unit,
     onClearLyrics: () -> Unit,
     onRescan: () -> Unit,
+    onSourceFolders: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
         item {
@@ -113,6 +116,23 @@ fun SettingsScreen(
         }
 
         item { Section("Discothèque") }
+        item {
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onSourceFolders).padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Dossiers sources", style = DecoType.Title, color = Deco.Cream)
+                    Spacer(Modifier.height(4.dp))
+                    val n = settings.sourceFolders.size
+                    Text(
+                        if (n == 0) "Tous les dossiers de l'appareil" else "$n dossier${if (n > 1) "s" else ""} sélectionné${if (n > 1) "s" else ""}",
+                        style = DecoType.Small, color = Deco.Gold,
+                    )
+                }
+                Icon(DecoIcons.Back, null, Modifier.size(20.dp).graphicsLayer { rotationZ = 180f }, tint = Deco.Gold)
+            }
+        }
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

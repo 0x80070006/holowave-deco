@@ -80,6 +80,7 @@ class LibraryCallbacks(
 fun LibraryScreen(
     catalog: Catalog,
     loading: Boolean,
+    filtered: Boolean,
     tab: LibraryTab,
     query: String,
     results: List<Track>,
@@ -121,6 +122,11 @@ fun LibraryScreen(
             full("empty") {
                 if (loading) {
                     EmptyState("Mise en place de la discothèque", "Lecture du catalogue de l'appareil…")
+                } else if (filtered) {
+                    EmptyState(
+                        "Rien dans ces dossiers",
+                        "Les dossiers sources choisis ne contiennent aucun morceau. Modifiez la sélection dans les réglages.",
+                    ) { DecoButton("Dossiers sources", cb.onSettings, filled = false) }
                 } else {
                     EmptyState(
                         "La scène est vide",
