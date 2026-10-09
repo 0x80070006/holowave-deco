@@ -51,7 +51,10 @@ import io.github.x80070006.holowave.data.TrackCollection
 import io.github.x80070006.holowave.playback.PlaybackState
 import io.github.x80070006.holowave.ui.Catalog
 import io.github.x80070006.holowave.ui.LibraryTab
+import io.github.x80070006.holowave.data.ScanProgress
 import io.github.x80070006.holowave.ui.components.ArtistRow
+import io.github.x80070006.holowave.ui.components.ScanBanner
+import io.github.x80070006.holowave.ui.components.running
 import io.github.x80070006.holowave.ui.components.CollectionCard
 import io.github.x80070006.holowave.ui.components.DecoButton
 import io.github.x80070006.holowave.ui.components.DecoDivider
@@ -81,6 +84,7 @@ fun LibraryScreen(
     catalog: Catalog,
     loading: Boolean,
     filtered: Boolean,
+    scan: ScanProgress?,
     tab: LibraryTab,
     query: String,
     results: List<Track>,
@@ -105,6 +109,7 @@ fun LibraryScreen(
                 onSettings = cb.onSettings,
             )
         }
+        if (scan != null && scan.running) full("scan") { ScanBanner(scan) }
         full("search") {
             AnimatedVisibility(searchActive) { SearchField(query, cb.onQuery) }
         }

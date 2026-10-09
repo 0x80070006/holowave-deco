@@ -29,10 +29,43 @@ sealed interface LibraryState {
  * Read-only index of the device's music, built from MediaStore.
  * Nothing is copied: playback streams straight from the content URIs.
  */
-class MediaLibrary(private val resolver: ContentResolver, private val scope: CoroutineScope) {
+class MediaLibrary(
+    private val resolver: ContentResolver,
+    private val scope: CoroutineScope,
+    private val scanner: AudioScanner,
+) {
 
     private val _state = MutableStateFlow<LibraryState>(LibraryState.Idle)
     val state: StateFlow<LibraryState> = _state.asStateFlow()
+
+    private val _scan = MutableStateFlow<ScanProgress?>(null)
+    /** Progress of the last storage scan; null when none ran in this session. */
+    val scan: StateFlow<ScanProgress?> = _scan.asStateFlow()
+    private var scanJob: Job? = null
+
+    val isScanning: Boolean get() = scanJob?.isActive == true
+
+    /**
+     * Walks [selection] (or all storage) for audio files, gets new ones indexed by
+     * Android, then reloads the library. Runs in the app scope so leaving the
+     * settings screen does not interrupt it.
+     */
+    fun scanStorage(selection: Set<String>) {
+        if (isScanning) return
+        _scan.value = ScanProgress.Searching(0, 0, "")
+        scanJob = scope.launch {
+            try {
+                scanner.scan(selection) { p -> _scan.value = p }
+            } finally {
+                refresh()
+            }
+        }
+    }
+
+    fun cancelScan() {
+        scanJob?.cancel()
+        _scan.value = null
+    }
 
     private var observer: ContentObserver? = null
     private var pendingRescan: Job? = null
@@ -85,9 +118,13 @@ class MediaLibrary(private val resolver: ContentResolver, private val scope: Cor
             MediaStore.Audio.Media.YEAR,
             MediaStore.Audio.Media.RELATIVE_PATH,
             MediaStore.Audio.Media.DATE_ADDED,
+            MediaStore.Audio.Media.VOLUME_NAME,
         )
         // Selection is constant: no user input is ever concatenated into SQL.
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= ?"
+        // Files registered but not analysed yet have NULL type/duration: keep them, the player
+        // reads the real duration, and the next scan completes their metadata.
+        val selection = "(${MediaStore.Audio.Media.IS_MUSIC} != 0 OR ${MediaStore.Audio.Media.IS_MUSIC} IS NULL)" +
+            " AND (${MediaStore.Audio.Media.DURATION} >= ? OR ${MediaStore.Audio.Media.DURATION} IS NULL)"
         val args = arrayOf(MIN_DURATION_MS.toString())
         val tracks = ArrayList<Track>()
         resolver.query(
@@ -104,6 +141,7 @@ class MediaLibrary(private val resolver: ContentResolver, private val scope: Cor
             val iYear = c.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
             val iPath = c.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH)
             val iAdded = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+            val iVolume = c.getColumnIndexOrThrow(MediaStore.Audio.Media.VOLUME_NAME)
             while (c.moveToNext() && tracks.size < MAX_TRACKS) {
                 val path = c.getString(iPath).orEmpty().trimEnd('/')
                 tracks += Track(
@@ -118,6 +156,7 @@ class MediaLibrary(private val resolver: ContentResolver, private val scope: Cor
                     year = c.getInt(iYear),
                     folder = path.substringAfterLast('/').ifBlank { "Racine" },
                     relativePath = if (path.isEmpty()) "" else "$path/",
+                    volume = c.getString(iVolume) ?: SourceFolders.PRIMARY,
                     dateAdded = c.getLong(iAdded),
                 )
             }

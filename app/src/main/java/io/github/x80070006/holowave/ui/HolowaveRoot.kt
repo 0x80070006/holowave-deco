@@ -90,6 +90,11 @@ fun HolowaveRoot(vm: MainViewModel) {
     val lyricsOpen by vm.lyricsOpen.collectAsStateWithLifecycle()
     val prefetch by vm.prefetch.collectAsStateWithLifecycle()
     val message by vm.messages.collectAsStateWithLifecycle()
+    val scan by vm.scan.collectAsStateWithLifecycle()
+
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) vm.addPickedFolder(uri)
+    }
 
     var overlay by remember { mutableStateOf<Overlay?>(null) }
     val miniHeight = remember { mutableIntStateOf(0) }
@@ -119,6 +124,7 @@ fun HolowaveRoot(vm: MainViewModel) {
                         catalog = catalog,
                         loading = libraryState is LibraryState.Loading || libraryState is LibraryState.Idle,
                         filtered = settings.sourceFolders.isNotEmpty(),
+                        scan = scan,
                         tab = tab, query = query, results = results, playback = playback,
                         bottomPadding = miniHeight,
                         cb = LibraryCallbacks(
@@ -157,7 +163,9 @@ fun HolowaveRoot(vm: MainViewModel) {
                         onPrefetch = vm::prefetchAllLyrics,
                         onCancelPrefetch = vm::cancelPrefetch,
                         onClearLyrics = vm::clearDownloadedLyrics,
-                        onRescan = vm::rescan,
+                        scan = scan,
+                        onScan = vm::scanStorage,
+                        onStopScan = vm::cancelScan,
                         onSourceFolders = { vm.open(Route.SourceFolders) },
                     )
                     Route.SourceFolders -> {
@@ -170,8 +178,13 @@ fun HolowaveRoot(vm: MainViewModel) {
                             totalTracks = total,
                             bottomPadding = miniHeight,
                             onBack = { vm.back() },
+                            scan = scan,
                             onToggle = vm::toggleSourceFolder,
+                            onRemove = vm::removeSourceFolder,
                             onIncludeAll = vm::includeAllFolders,
+                            onPick = { runCatching { pickFolder.launch(null) } },
+                            onScan = vm::scanStorage,
+                            onStopScan = vm::cancelScan,
                         )
                     }
                 }

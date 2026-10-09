@@ -17,6 +17,8 @@ data class Track(
     val folder: String,
     /** MediaStore relative path of the containing directory, e.g. "Music/Jazz/". */
     val relativePath: String,
+    /** MediaStore volume, e.g. "external_primary" or an SD card id. */
+    val volume: String,
     val dateAdded: Long,
 ) {
     val uri: Uri get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)

@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.x80070006.holowave.HolowaveApp
+import io.github.x80070006.holowave.data.AudioScanner
 import io.github.x80070006.holowave.data.CollectionKind
 import io.github.x80070006.holowave.data.FolderNode
 import io.github.x80070006.holowave.data.SourceFolders
@@ -140,8 +141,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         player.connect()
     }
 
-    fun onPermissionGranted() = app.library.start()
-    fun rescan() = app.library.refresh()
+    val scan = app.library.scan
+
+    fun onPermissionGranted() {
+        app.library.start()
+        if (app.settings.consumeFirstScan()) app.library.scanStorage(settings.value.sourceFolders)
+    }
+
+    /** Real scan of the storage (selected folders, or everything), then reload. */
+    fun scanStorage() = app.library.scanStorage(settings.value.sourceFolders)
+    fun cancelScan() = app.library.cancelScan()
 
     // ---------------------------------------------------------- navigation
 
@@ -239,8 +248,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setOnlineLyrics(enabled: Boolean) = app.settings.setOnlineLyrics(enabled)
     fun setSpinningRecord(enabled: Boolean) = app.settings.setSpinningRecord(enabled)
 
-    fun toggleSourceFolder(path: String) =
-        app.settings.setSourceFolders(SourceFolders.toggle(path, settings.value.sourceFolders))
+    fun toggleSourceFolder(key: String) =
+        app.settings.setSourceFolders(SourceFolders.toggle(key, settings.value.sourceFolders))
+
+    fun removeSourceFolder(key: String) {
+        app.settings.setSourceFolders(settings.value.sourceFolders - key)
+        releaseGrant(key)
+    }
+
+    /** Gives back the picker grant of a folder the user no longer wants. */
+    private fun releaseGrant(key: String) {
+        val resolver = getApplication<Application>().contentResolver
+        resolver.persistedUriPermissions
+            .filter { AudioScanner.keyOfTree(it.uri) == key }
+            .forEach { runCatching { resolver.releasePersistableUriPermission(it.uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) } }
+    }
+
+    /**
+     * Adds a folder chosen in the system picker and keeps its read-only grant, so
+     * later scans can list it fully (including files Android hides because they
+     * were never indexed). Then the folder is scanned right away.
+     */
+    fun addPickedFolder(treeUri: Uri) {
+        val key = AudioScanner.keyOfTree(treeUri)
+        if (key == null) {
+            _messages.value = "Choisissez un dossier précis de la mémoire du téléphone ou de la carte SD"
+            return
+        }
+        runCatching {
+            getApplication<Application>().contentResolver
+                .takePersistableUriPermission(treeUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val selection = SourceFolders.add(key, settings.value.sourceFolders)
+        app.settings.setSourceFolders(selection)
+        _messages.value = "« ${SourceFolders.label(key)} » ajouté, recherche des morceaux…"
+        app.library.scanStorage(setOf(key))
+    }
 
     fun includeAllFolders() = app.settings.setSourceFolders(emptySet())
 
@@ -300,7 +343,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         private fun LibraryState.Ready.filtered(folders: Set<String>): LibraryState.Ready =
             if (folders.isEmpty()) this
-            else LibraryState.Ready(tracks.filter { SourceFolders.includes(it.relativePath, folders) })
+            else LibraryState.Ready(tracks.filter { SourceFolders.includes(SourceFolders.key(it.volume, it.relativePath), folders) })
 
         private val byNumberThenTitle = compareBy<Track>({ it.trackNumber }, { it.title.lowercase() })
 

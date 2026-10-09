@@ -2,6 +2,7 @@ package io.github.x80070006.holowave
 
 import android.app.Application
 import io.github.x80070006.holowave.data.ArtworkLoader
+import io.github.x80070006.holowave.data.AudioScanner
 import io.github.x80070006.holowave.data.MediaLibrary
 import io.github.x80070006.holowave.data.PlaylistStore
 import io.github.x80070006.holowave.data.Settings
@@ -15,7 +16,7 @@ class HolowaveApp : Application() {
     val appScope = MainScope()
 
     val settings by lazy { Settings(this) }
-    val library by lazy { MediaLibrary(contentResolver, appScope) }
+    val library by lazy { MediaLibrary(contentResolver, appScope, AudioScanner(this)) }
     val playlists by lazy { PlaylistStore(filesDir, appScope).also { it.load() } }
     val artwork by lazy { ArtworkLoader(contentResolver) }
     val lyrics by lazy { LyricsRepository(contentResolver, filesDir, LrcLibClient()) }

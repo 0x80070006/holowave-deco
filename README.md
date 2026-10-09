@@ -35,7 +35,8 @@ La version 2 est une refonte complète de l'[ancienne HoloWave](https://github.c
 
 **Lecture**
 - Discothèque locale indexée via MediaStore, par **albums, artistes, dossiers, titres** et **playlists**
-- **Dossiers sources** au choix : un ou plusieurs dossiers (sous-dossiers inclus), par exemple seulement `Music/Jazz` et `Download/Vinyles`
+- **Dossiers sources** : ajoutez manuellement les dossiers de votre choix (sélecteur Android) ou cochez-les dans l'arborescence détectée, sous-dossiers inclus, mémoire interne et carte SD
+- **Vraie recherche des morceaux** avec barre de progression : HOLOWAVE parcourt les dossiers et fait indexer par Android les fichiers audio qu'il n'avait pas encore repérés, ou seulement à moitié. Ça règle le cas classique des morceaux copiés qui n'apparaissent nulle part.
 - Recherche instantanée (insensible aux accents)
 - File d'attente : *lire ensuite*, *ajouter à la file*, aléatoire, répétition (file / titre)
 - **Coups de cœur** et playlists, sauvegardés sur l'appareil
@@ -75,7 +76,7 @@ L'app est pensée pour être sûre par défaut (*secure by design*) :
 
 | | |
 |---|---|
-| **Permissions minimales** | lecture de l'audio (`READ_MEDIA_AUDIO`), notifications, service de lecture. Pas d'accès aux photos, aux contacts, à la localisation ni à l'ensemble des fichiers. |
+| **Permissions minimales** | lecture de l'audio (`READ_MEDIA_AUDIO`), notifications, service de lecture. Pas d'accès aux photos, aux contacts, à la localisation ni à l'ensemble des fichiers (`MANAGE_EXTERNAL_STORAGE` n'est pas demandé). Les dossiers ajoutés à la main passent par le sélecteur Android : accès **en lecture seule**, limité à ces dossiers, et rendu à Android quand vous retirez le dossier. |
 | **Réseau** | Une seule destination possible : `lrclib.net`, en HTTPS, et la fonction se désactive dans les réglages. Le trafic en clair est interdit et seules les autorités de certification du système sont acceptées (les CA ajoutées par l'utilisateur sont refusées, ce qui bloque l'interception). Les réponses sont plafonnées à 1 Mo, avec des délais d'attente stricts. |
 | **Données envoyées** | Titre, artiste, album et durée du morceau, rien d'autre. Aucun identifiant ni statistique. |
 | **Stockage** | Playlists, favoris et paroles restent dans l'espace privé de l'app et sont **exclus des sauvegardes cloud** et des transferts d'appareil. Les écritures sont atomiques (`AtomicFile`). |
@@ -89,7 +90,7 @@ L'app est pensée pour être sûre par défaut (*secure by design*) :
 2. Ouvrez-le sur votre téléphone (autorisez l'installation depuis cette source si Android le demande).
 3. Au premier lancement, autorisez l'accès à « Musique et audio ».
 
-Mettez vos fichiers (MP3, FLAC, M4A, OGG, WAV…) dans le dossier **Musique** du téléphone : ils apparaissent automatiquement. Pour n'afficher que certains dossiers, allez dans **Réglages → Dossiers sources**. Ce filtre ne demande aucune permission supplémentaire : il s'appuie sur l'index audio d'Android.
+Mettez vos fichiers (MP3, FLAC, M4A, OGG, WAV…) dans le dossier **Musique** du téléphone : ils apparaissent automatiquement. Pour n'afficher que certains dossiers, allez dans **Réglages → Dossiers sources**, puis **Ajouter un dossier…**. Si des morceaux manquent, lancez **Rechercher** : la barre indique les dossiers parcourus, les fichiers trouvés, puis l'indexation.
 
 **Astuce paroles :** pour avoir les paroles sans jamais toucher au réseau, intégrez-les dans vos fichiers (avec [Mp3tag](https://www.mp3tag.de/) ou [MusicBrainz Picard](https://picard.musicbrainz.org/)), ou importez un `.lrc` depuis l'écran des paroles.
 

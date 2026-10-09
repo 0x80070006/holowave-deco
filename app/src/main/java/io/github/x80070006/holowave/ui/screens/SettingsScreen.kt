@@ -33,7 +33,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.BuildConfig
 import io.github.x80070006.holowave.data.AppSettings
+import io.github.x80070006.holowave.data.ScanProgress
 import io.github.x80070006.holowave.ui.PrefetchProgress
+import io.github.x80070006.holowave.ui.components.ScanPanel
+import io.github.x80070006.holowave.ui.components.running
 import io.github.x80070006.holowave.ui.components.DecoButton
 import io.github.x80070006.holowave.ui.components.DecoDivider
 import io.github.x80070006.holowave.ui.components.DecoIconButton
@@ -56,7 +59,9 @@ fun SettingsScreen(
     onPrefetch: () -> Unit,
     onCancelPrefetch: () -> Unit,
     onClearLyrics: () -> Unit,
-    onRescan: () -> Unit,
+    scan: ScanProgress?,
+    onScan: () -> Unit,
+    onStopScan: () -> Unit,
     onSourceFolders: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
@@ -136,12 +141,18 @@ fun SettingsScreen(
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("$trackCount titres indexés", style = DecoType.Title, color = Deco.Cream)
+                    Text("Rechercher les morceaux", style = DecoType.Title, color = Deco.Cream)
                     Spacer(Modifier.height(4.dp))
-                    Text("Les fichiers restent où ils sont : rien n'est copié ni envoyé.", style = DecoType.Small, color = Deco.CreamDim)
+                    Text(
+                        "$trackCount titres dans la discothèque. Parcourt ${if (settings.sourceFolders.isEmpty()) "tout le stockage" else "les dossiers sources"} " +
+                            "et ajoute les fichiers audio qu'Android n'avait pas encore repérés. Rien n'est copié ni envoyé.",
+                        style = DecoType.Small, color = Deco.CreamDim,
+                    )
                 }
-                DecoButton("Analyser", onRescan, icon = DecoIcons.Refresh, filled = false)
+                Spacer(Modifier.width(12.dp))
+                DecoButton("Lancer", onScan, icon = DecoIcons.Search, filled = false, enabled = scan?.running != true)
             }
+            if (scan != null) ScanPanel(scan, onStopScan, Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         }
 
         item { Section("Confidentialité") }

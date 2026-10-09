@@ -44,9 +44,17 @@ class Settings(context: Context) {
         _state.value = _state.value.copy(sourceFolders = clean)
     }
 
+    /** True only the first time it is called: the very first launch gets a full storage scan. */
+    fun consumeFirstScan(): Boolean {
+        if (prefs.getBoolean(KEY_FIRST_SCAN_DONE, false)) return false
+        prefs.edit().putBoolean(KEY_FIRST_SCAN_DONE, true).apply()
+        return true
+    }
+
     private companion object {
         const val KEY_ONLINE_LYRICS = "online_lyrics"
         const val KEY_SPINNING = "spinning_record"
         const val KEY_FOLDERS = "source_folders"
+        const val KEY_FIRST_SCAN_DONE = "first_scan_done"
     }
 }

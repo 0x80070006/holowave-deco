@@ -2,6 +2,7 @@ package io.github.x80070006.holowave.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -29,12 +30,15 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.data.FolderNode
+import io.github.x80070006.holowave.data.ScanProgress
 import io.github.x80070006.holowave.data.SourceFolders
+import io.github.x80070006.holowave.ui.components.DecoButton
 import io.github.x80070006.holowave.ui.components.DecoDivider
 import io.github.x80070006.holowave.ui.components.DecoIconButton
-import io.github.x80070006.holowave.ui.components.EmptyState
 import io.github.x80070006.holowave.ui.components.Hairline
+import io.github.x80070006.holowave.ui.components.ScanPanel
 import io.github.x80070006.holowave.ui.components.SectionLabel
+import io.github.x80070006.holowave.ui.components.running
 import io.github.x80070006.holowave.ui.theme.Deco
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
@@ -46,10 +50,16 @@ fun SourceFoldersScreen(
     shownTracks: Int,
     totalTracks: Int,
     bottomPadding: State<Int>,
+    scan: ScanProgress?,
     onBack: () -> Unit,
     onToggle: (String) -> Unit,
+    onRemove: (String) -> Unit,
     onIncludeAll: () -> Unit,
+    onPick: () -> Unit,
+    onScan: () -> Unit,
+    onStopScan: () -> Unit,
 ) {
+    val counts = tree.associate { it.key to it.trackCount }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
         item {
             Column(Modifier.statusBarsPadding()) {
@@ -57,16 +67,24 @@ fun SourceFoldersScreen(
                 Text("Dossiers sources", style = DecoType.Display, color = Deco.GoldBright, modifier = Modifier.padding(horizontal = 24.dp))
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "Choisissez un ou plusieurs dossiers à afficher dans la discothèque. Un dossier coché inclut ses sous-dossiers. " +
+                    "Ajoutez les dossiers de votre choix, ou cochez-les dans la liste ci-dessous. Un dossier inclut ses sous-dossiers. " +
                         "Les autres fichiers ne sont ni supprimés ni déplacés, seulement masqués.",
                     style = DecoType.Small, color = Deco.CreamDim, modifier = Modifier.padding(horizontal = 24.dp),
                 )
-                Spacer(Modifier.height(14.dp))
-                DecoDivider(Modifier.padding(horizontal = 24.dp))
+                Spacer(Modifier.height(18.dp))
+                Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DecoButton("Ajouter un dossier…", onPick, Modifier.fillMaxWidth(), icon = DecoIcons.Plus, enabled = scan?.running != true)
+                    DecoButton(
+                        if (selected.isEmpty()) "Rechercher sur tout l'appareil" else "Rechercher dans mes dossiers",
+                        onScan, Modifier.fillMaxWidth(), icon = DecoIcons.Search, filled = false, enabled = scan?.running != true,
+                    )
+                }
+                if (scan != null) ScanPanel(scan, onStopScan, Modifier.padding(horizontal = 24.dp, vertical = 14.dp))
                 Spacer(Modifier.height(8.dp))
+                DecoDivider(Modifier.padding(horizontal = 24.dp))
                 Text(
                     "$shownTracks titre${if (shownTracks > 1) "s" else ""} affiché${if (shownTracks > 1) "s" else ""} sur $totalTracks",
-                    style = DecoType.Numeral, color = Deco.Gold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
+                    style = DecoType.Numeral, color = Deco.Gold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
                 )
             }
         }
@@ -74,33 +92,61 @@ fun SourceFoldersScreen(
         item {
             FolderRow(
                 name = "Tous les dossiers",
-                detail = "Tout ce que l'appareil a indexé",
+                detail = "Tout le stockage de l'appareil",
                 count = totalTracks,
                 depth = 0,
                 state = if (selected.isEmpty()) CheckState.ON else CheckState.OFF,
                 onClick = onIncludeAll,
             )
-            Hairline(Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-            SectionLabel("Dossiers de l'appareil", Modifier.padding(horizontal = 24.dp, vertical = 10.dp))
         }
 
-        if (tree.isEmpty()) {
-            item { EmptyState("Aucun dossier", "Aucun fichier audio n'a encore été indexé sur cet appareil.") }
+        if (selected.isNotEmpty()) {
+            item { SectionLabel("Mes dossiers", Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 6.dp)) }
+            items(selected.sorted(), key = { "sel-$it" }) { key ->
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 24.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    DecoCheck(CheckState.ON)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(key.substringAfter(':').trimEnd('/').substringAfterLast('/'), style = DecoType.Title, color = Deco.GoldBright, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(3.dp))
+                        val n = counts[key] ?: 0
+                        Text(
+                            SourceFolders.label(key) + if (n == 0) " · aucun morceau indexé pour l'instant" else " · $n titre${if (n > 1) "s" else ""}",
+                            style = DecoType.Small, color = Deco.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    DecoIconButton(DecoIcons.Close, "Retirer ${SourceFolders.label(key)}", { onRemove(key) }, tint = Deco.CreamDim, iconSize = 18.dp)
+                }
+            }
         }
 
-        items(tree, key = { it.path }) { node ->
+        item {
+            Hairline(Modifier.padding(horizontal = 24.dp, vertical = 10.dp))
+            SectionLabel("Dossiers détectés", Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            if (tree.isEmpty()) {
+                Text(
+                    "Aucun fichier audio indexé pour l'instant. Lancez une recherche ou ajoutez un dossier.",
+                    style = DecoType.Small, color = Deco.CreamDim, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                )
+            }
+        }
+
+        items(tree, key = { it.key }) { node ->
             val state = when {
-                node.path in selected -> CheckState.ON
-                SourceFolders.coveredByAncestor(node.path, selected) -> CheckState.INHERITED
+                node.key in selected -> CheckState.ON
+                SourceFolders.coveredByAncestor(node.key, selected) -> CheckState.INHERITED
                 else -> CheckState.OFF
             }
             FolderRow(
                 name = node.name,
-                detail = node.path.trimEnd('/'),
+                detail = SourceFolders.label(node.key),
                 count = node.trackCount,
                 depth = node.depth,
                 state = state,
-                onClick = { onToggle(node.path) },
+                onClick = { onToggle(node.key) },
             )
         }
     }

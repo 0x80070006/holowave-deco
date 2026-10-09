@@ -25,6 +25,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="false"
         android:supportsRtl="true"
+        android:requestLegacyExternalStorage="true"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.Holowave"
         tools:targetApi="36">
