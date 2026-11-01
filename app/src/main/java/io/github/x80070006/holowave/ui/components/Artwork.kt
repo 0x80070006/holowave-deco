@@ -28,7 +28,7 @@ import kotlin.math.abs
 
 val LocalArtwork = compositionLocalOf<ArtworkLoader> { error("ArtworkLoader not provided") }
 
-class LoadedArt(val image: ImageBitmap, val accent: Color)
+class LoadedArt(val image: ImageBitmap, val accent: Color, val secondary: Color)
 
 /** Loads (and memoises) the cover of [track]; null while loading or when the file has none. */
 @Composable
@@ -36,11 +36,11 @@ fun rememberArtwork(track: Track?, size: Int = 512): LoadedArt? {
     val loader = LocalArtwork.current
     val uri = track?.uri
     var art by remember(uri, size) {
-        mutableStateOf(uri?.let { loader.cached(it, size) }?.let { LoadedArt(it.bitmap.asImageBitmap(), Color(it.accent)) })
+        mutableStateOf(uri?.let { loader.cached(it, size) }?.let { LoadedArt(it.bitmap.asImageBitmap(), Color(it.accent), Color(it.secondary)) })
     }
     LaunchedEffect(uri, size) {
         if (uri != null && art == null) {
-            loader.load(uri, size)?.let { art = LoadedArt(it.bitmap.asImageBitmap(), Color(it.accent)) }
+            loader.load(uri, size)?.let { art = LoadedArt(it.bitmap.asImageBitmap(), Color(it.accent), Color(it.secondary)) }
         }
     }
     return art

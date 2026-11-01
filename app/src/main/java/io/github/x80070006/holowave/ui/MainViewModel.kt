@@ -18,6 +18,7 @@ import io.github.x80070006.holowave.data.TrackKey
 import io.github.x80070006.holowave.data.TrackSource
 import io.github.x80070006.holowave.lyrics.LyricsLookup
 import io.github.x80070006.holowave.ui.theme.ModePref
+import io.github.x80070006.holowave.ui.theme.MotionPref
 import io.github.x80070006.holowave.ui.theme.MonoAccent
 import io.github.x80070006.holowave.ui.theme.ThemeId
 import kotlinx.coroutines.Dispatchers
@@ -310,7 +311,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // -------------------------------------------------------------- lyrics
 
     fun setOnlineLyrics(enabled: Boolean) = app.settings.setOnlineLyrics(enabled)
-    fun setSpinningRecord(enabled: Boolean) = app.settings.setSpinningRecord(enabled)
 
     fun toggleSourceFolder(key: String) =
         app.settings.setSourceFolders(SourceFolders.toggle(key, settings.value.sourceFolders))
@@ -363,6 +363,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setTheme(id: ThemeId) = app.appearance.setTheme(id)
     fun setMode(mode: ModePref) = app.appearance.setMode(mode)
     fun setMonoAccent(accent: MonoAccent) = app.appearance.setMonoAccent(accent)
+    fun setCoverColors(enabled: Boolean) = app.appearance.setCoverColors(enabled)
+    fun setMotion(motion: MotionPref) = app.appearance.setMotion(motion)
+
+    val sleepEndsAt = app.player.sleepEndsAt
+    fun setSleepTimer(minutes: Int?) = app.player.setSleepTimer(minutes)
 
     fun setRecordHistory(enabled: Boolean) = app.settings.setRecordHistory(enabled)
 

@@ -148,6 +148,35 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         _position.value = ms
     }
 
+    private val _sleepEnds = MutableStateFlow<Long?>(null)
+    /** When the sleep timer will pause playback, or null when it is off. */
+    val sleepEndsAt: StateFlow<Long?> = _sleepEnds.asStateFlow()
+    private var sleepJob: Job? = null
+
+    /** Pauses after [minutes] with a short volume fade; null cancels the timer. */
+    fun setSleepTimer(minutes: Int?) {
+        sleepJob?.cancel()
+        withController { c -> runCatching { c.volume = 1f } }
+        if (minutes == null) {
+            _sleepEnds.value = null
+            return
+        }
+        val total = minutes * 60_000L
+        _sleepEnds.value = System.currentTimeMillis() + total
+        sleepJob = scope.launch {
+            delay((total - FADE_MS).coerceAtLeast(0L))
+            repeat(FADE_STEPS) { i ->
+                withController { c -> runCatching { c.volume = 1f - (i + 1f) / FADE_STEPS } }
+                delay(FADE_MS / FADE_STEPS)
+            }
+            withController { c ->
+                c.pause()
+                runCatching { c.volume = 1f }
+            }
+            _sleepEnds.value = null
+        }
+    }
+
     fun toggleShuffle() = withController { it.shuffleModeEnabled = !it.shuffleModeEnabled }
 
     fun cycleRepeat() = withController { c ->
@@ -208,4 +237,9 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
                 .build(),
         )
         .build()
+
+    private companion object {
+        const val FADE_MS = 6_000L
+        const val FADE_STEPS = 8
+    }
 }

@@ -44,7 +44,7 @@ class RoleColors(
  * Every colour the UI may use. Surfaces and text levels come from the five roles by
  * luminance or opacity, so a theme never needs a sixth hue.
  */
-class HoloColors(roles: RoleColors, val isDark: Boolean) {
+class HoloColors(val roles: RoleColors, val isDark: Boolean) {
     val primary = roles.primary
     val secondary = roles.secondary
     val tertiary = roles.tertiary
@@ -171,6 +171,24 @@ object HoloThemes {
     }
 
     fun colors(id: ThemeId, dark: Boolean, mono: MonoAccent = MonoAccent.VIOLET) = HoloColors(roles(id, dark, mono), dark)
+
+    /**
+     * The "cover" option: primary and secondary come from the cover being played, nudged
+     * until they are readable (4.5:1) on every surface of the theme. The other three roles
+     * stay those of the theme.
+     */
+    fun withCover(base: HoloColors, primary: Color, secondary: Color): HoloColors {
+        val surfaces = listOf(base.background, base.surface, base.surfaceHigh)
+        val r = base.roles
+        return HoloColors(
+            RoleColors(
+                primary = Contrast.ensure(primary, surfaces, 4.5, lighten = base.isDark),
+                secondary = Contrast.ensure(secondary, surfaces, 4.5, lighten = base.isDark),
+                tertiary = r.tertiary, background = r.background, text = r.text,
+            ),
+            base.isDark,
+        )
+    }
 
     /** Smallest contrast the theme guarantees, shown in the palette preview. */
     fun minContrast(c: HoloColors): Double {

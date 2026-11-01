@@ -49,7 +49,17 @@ object Appearance {
             ModePref.DARK -> true
         }
 
-    val colors: HoloColors by derivedStateOf { HoloThemes.colors(themeId, isDark, monoAccent) }
+    /** Cover colours of the current track (already animated); null when none or when the option is off. */
+    var coverPrimary by mutableStateOf<Color?>(null)
+    var coverSecondary by mutableStateOf<Color?>(null)
+
+    val baseColors: HoloColors by derivedStateOf { HoloThemes.colors(themeId, isDark, monoAccent) }
+
+    val colors: HoloColors by derivedStateOf {
+        val p = coverPrimary
+        val s = coverSecondary
+        if (coverColors && p != null && s != null) HoloThemes.withCover(baseColors, p, s) else baseColors
+    }
 
     /** "Reduced" is applied automatically when the system asks for it. */
     val effectiveMotion: MotionPref

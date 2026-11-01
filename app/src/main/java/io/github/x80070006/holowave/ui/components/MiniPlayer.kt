@@ -129,10 +129,7 @@ fun MiniPlayer(
                 },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    if (playback.isPlaying) DecoIcons.Pause else DecoIcons.Play,
-                    if (playback.isPlaying) "Pause" else "Lecture", Modifier.size(22.dp), tint = c.onPrimary,
-                )
+                PlayPauseIcon(playback.isPlaying, c.onPrimary, Modifier.size(24.dp))
             }
         }
         // Thin progress line along the bottom edge.

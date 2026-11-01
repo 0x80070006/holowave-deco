@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -33,6 +34,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +58,9 @@ import io.github.x80070006.holowave.ui.components.HoloBottomBar
 import io.github.x80070006.holowave.ui.components.MiniPlayer
 import io.github.x80070006.holowave.ui.components.NameDialog
 import io.github.x80070006.holowave.ui.components.PlaylistPicker
+import io.github.x80070006.holowave.ui.components.QueueSheet
+import io.github.x80070006.holowave.ui.components.SleepSheet
+import io.github.x80070006.holowave.ui.components.rememberArtwork
 import io.github.x80070006.holowave.ui.components.SheetAction
 import io.github.x80070006.holowave.ui.components.SheetRow
 import io.github.x80070006.holowave.ui.components.decoShape
@@ -83,6 +88,8 @@ private sealed interface Overlay {
     data class PlaylistOptions(val key: String, val name: String) : Overlay
     data class RenamePlaylist(val key: String, val name: String) : Overlay
     data class DeletePlaylist(val key: String, val name: String) : Overlay
+    data object Queue : Overlay
+    data object Sleep : Overlay
 }
 
 @Composable
@@ -106,6 +113,8 @@ fun HolowaveRoot(vm: MainViewModel) {
     val prefetch by vm.prefetch.collectAsStateWithLifecycle()
     val message by vm.messages.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
+    val sleepEndsAt by vm.sleepEndsAt.collectAsStateWithLifecycle()
+
     val listenCount by vm.listenCount.collectAsStateWithLifecycle()
     var confirmClearHistory by remember { mutableStateOf(false) }
     val exportHistory = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -149,6 +158,7 @@ fun HolowaveRoot(vm: MainViewModel) {
     val onTrackMenu: (Track, String?) -> Unit = { t, key -> overlay = Overlay.TrackOptions(t, key) }
 
     CompositionLocalProvider(LocalArtwork provides vm.artwork) {
+        CoverColorSync(current)
         Box(Modifier.fillMaxSize().background(Deco.Ink)) {
             AnimatedContent(
                 targetState = routes.last(),
@@ -207,7 +217,6 @@ fun HolowaveRoot(vm: MainViewModel) {
                                 bottomPadding = miniHeight,
                                 onBack = null,
                                 onOnlineLyrics = vm::setOnlineLyrics,
-                                onSpinning = vm::setSpinningRecord,
                                 onPrefetch = vm::prefetchAllLyrics,
                                 onCancelPrefetch = vm::cancelPrefetch,
                                 onClearLyrics = vm::clearDownloadedLyrics,
@@ -224,6 +233,8 @@ fun HolowaveRoot(vm: MainViewModel) {
                                 onTheme = vm::setTheme,
                                 onMode = vm::setMode,
                                 onMonoAccent = vm::setMonoAccent,
+                                onCoverColors = vm::setCoverColors,
+                                onMotion = vm::setMotion,
                             )
                         }
                     }
@@ -302,10 +313,14 @@ fun HolowaveRoot(vm: MainViewModel) {
                         .drop(playback.queueIndex + 1).take(4)
                         .mapNotNull { (i, id) -> catalog.byId[id]?.let { i to it } }
                 }
+                val album = remember(current, catalog) { current?.let { catalog.albumsByKey[it.albumId.toString()] } }
+                val sameArtist = remember(current, catalog) {
+                    current?.let { t -> catalog.artists.firstOrNull { it.key == t.artist }?.tracks?.filter { it.id != t.id }?.take(12) }.orEmpty()
+                }
                 NowPlayingScreen(
                     track = current, playback = playback, position = position, lyrics = lyrics,
                     isFavorite = current?.id?.let { it in catalog.favoriteIds } == true,
-                    spin = settings.spinningRecord, upNext = upNext,
+                    upNext = upNext, album = album, sameArtist = sameArtist, sleepActive = sleepEndsAt != null,
                     cb = PlayerCallbacks(
                         onClose = { vm.openPlayer(false) },
                         onToggle = vm.player::togglePlay,
@@ -318,6 +333,13 @@ fun HolowaveRoot(vm: MainViewModel) {
                         onLyrics = { vm.openLyrics(true) },
                         onMenu = { current?.let { overlay = Overlay.TrackOptions(it, null) } },
                         onSkipTo = vm.player::skipTo,
+                        onQueue = { overlay = Overlay.Queue },
+                        onSleep = { overlay = Overlay.Sleep },
+                        onPlayTracks = { list, i -> vm.play(list, i) },
+                        onOpenAlbum = { key ->
+                            vm.openPlayer(false)
+                            vm.open(Route.Detail(CollectionKind.ALBUM, key))
+                        },
                     ),
                 )
             }
@@ -358,6 +380,17 @@ fun HolowaveRoot(vm: MainViewModel) {
 
         when (val o = overlay) {
             null -> Unit
+            Overlay.Queue -> QueueSheet(
+                items = playback.queueIds.mapIndexedNotNull { i, id -> catalog.byId[id]?.let { i to it } },
+                currentIndex = playback.queueIndex,
+                onSkip = vm.player::skipTo,
+                onDismiss = { if (overlay == o) overlay = null },
+            )
+            Overlay.Sleep -> SleepSheet(
+                endsAt = sleepEndsAt,
+                onPick = vm::setSleepTimer,
+                onDismiss = { if (overlay == o) overlay = null },
+            )
             is Overlay.TrackOptions -> TrackMenu(
                 o.track,
                 buildList {
@@ -414,5 +447,23 @@ private fun Toast(text: String, modifier: Modifier = Modifier) {
             .padding(horizontal = 18.dp, vertical = 12.dp),
     ) {
         Text(text, style = DecoType.Small, color = Deco.Cream)
+    }
+}
+
+
+/** Animates the cover option's colours toward the current track's and publishes them to [Appearance]. */
+@Composable
+private fun CoverColorSync(track: Track?) {
+    val coverArt = rememberArtwork(track, 256)
+    val base = Appearance.baseColors
+    val coverPrimary by animateColorAsState(coverArt?.accent ?: base.primary, tween(700), label = "coverPrimary")
+    val coverSecondary by animateColorAsState(coverArt?.secondary ?: base.secondary, tween(700), label = "coverSecondary")
+    // Read here, in composition, so every animation frame re-runs the effect below.
+    val p = coverPrimary
+    val sec = coverSecondary
+    val hasCover = coverArt != null
+    SideEffect {
+        Appearance.coverPrimary = if (hasCover) p else null
+        Appearance.coverSecondary = if (hasCover) sec else null
     }
 }

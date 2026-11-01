@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.util.LruCache
 import android.util.Size
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
@@ -14,7 +15,7 @@ import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
 
 /** A decoded cover plus the accent colour pulled from it, used to tint the player. */
-class Artwork(val bitmap: Bitmap, val accent: Int)
+class Artwork(val bitmap: Bitmap, val accent: Int, val secondary: Int)
 
 /**
  * Loads embedded cover art through the platform thumbnail API, which decodes
@@ -47,7 +48,7 @@ class ArtworkLoader(private val resolver: ContentResolver) {
                     missing.put(key, true)
                     null
                 } else {
-                    Artwork(bitmap, accentOf(bitmap)).also { cache.put(key, it) }
+                    coversOf(bitmap).let { (p, s) -> Artwork(bitmap, p, s) }.also { cache.put(key, it) }
                 }
             }
         }
@@ -64,6 +65,16 @@ class ArtworkLoader(private val resolver: ContentResolver) {
         private const val MAX_CACHE_BYTES = 24 * 1024 * 1024
 
         /** Picks the most colourful of a few averaged regions; falls back to a dark teal. */
+        /** Two lively colours of the cover, as ARGB ints. */
+        fun coversOf(bitmap: Bitmap): Pair<Int, Int> {
+            val small = runCatching { bitmap.scale(16, 16) }.getOrNull() ?: return DEFAULT_ACCENT to DEFAULT_ACCENT
+            val pixels = IntArray(16 * 16)
+            small.getPixels(pixels, 0, 16, 0, 0, 16, 16)
+            if (small !== bitmap) small.recycle()
+            val picked = io.github.x80070006.holowave.ui.theme.CoverColors.pick(pixels) ?: return DEFAULT_ACCENT to DEFAULT_ACCENT
+            return picked.primary.toArgb() to picked.secondary.toArgb()
+        }
+
         fun accentOf(bitmap: Bitmap): Int {
             val small = runCatching { bitmap.scale(6, 6) }.getOrNull() ?: return DEFAULT_ACCENT
             var best = DEFAULT_ACCENT

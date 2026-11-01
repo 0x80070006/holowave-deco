@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -186,6 +187,49 @@ fun ConfirmDialog(title: String, body: String, confirm: String, onConfirm: () ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
                 DecoButton("Annuler", onDismiss, filled = false)
                 DecoButton(confirm, { onDismiss(); onConfirm() })
+            }
+        }
+    }
+}
+
+/** Sleep timer choices; the current one is announced as a remaining time. */
+@Composable
+fun SleepSheet(endsAt: Long?, onPick: (Int?) -> Unit, onDismiss: () -> Unit) {
+    val c = io.github.x80070006.holowave.ui.theme.HoloTheme.colors
+    DecoSheet(onDismiss) {
+        Text("Minuterie de sommeil", style = DecoType.Headline, color = c.text, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+        if (endsAt != null) {
+            val minutes = ((endsAt - System.currentTimeMillis()) / 60_000L + 1).coerceAtLeast(1)
+            Text("La lecture s'arrêtera dans $minutes min, avec un fondu.", style = DecoType.Small, color = c.primary, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+        }
+        listOf<Pair<Int?, String>>(15 to "15 minutes", 30 to "30 minutes", 45 to "45 minutes", 60 to "1 heure", 90 to "1 h 30").forEach { (m, label) ->
+            SheetRow(DecoIcons.Moon, label) { onDismiss(); onPick(m) }
+        }
+        if (endsAt != null) SheetRow(DecoIcons.Close, "Désactiver la minuterie") { onDismiss(); onPick(null) }
+    }
+}
+
+/** Everything in the play queue, the current track highlighted; tap to jump. */
+@Composable
+fun QueueSheet(items: List<Pair<Int, Track>>, currentIndex: Int, onSkip: (Int) -> Unit, onDismiss: () -> Unit) {
+    val c = io.github.x80070006.holowave.ui.theme.HoloTheme.colors
+    DecoSheet(onDismiss) {
+        Text("File d'attente", style = DecoType.Headline, color = c.text, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+        LazyColumn(Modifier.heightIn(max = 520.dp)) {
+            items(items, key = { it.first }) { (index, t) ->
+                val current = index == currentIndex
+                Row(
+                    Modifier.fillMaxWidth().clickable { onDismiss(); onSkip(index) }.padding(horizontal = 24.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CoverImage(t, Modifier.size(44.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)), size = 192)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(t.title, style = DecoType.Title, color = if (current) c.primary else c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(t.artist, style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (current) EqualizerBars(true, Modifier.size(14.dp), c.primary)
+                }
             }
         }
     }

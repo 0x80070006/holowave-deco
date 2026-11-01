@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.Look
 import io.github.x80070006.holowave.ui.theme.ModePref
+import io.github.x80070006.holowave.ui.theme.MotionPref
 import io.github.x80070006.holowave.ui.theme.MonoAccent
 import io.github.x80070006.holowave.ui.theme.ThemeId
 import androidx.compose.foundation.lazy.items
@@ -66,7 +67,6 @@ fun SettingsScreen(
     bottomPadding: State<Int>,
     onBack: (() -> Unit)?,
     onOnlineLyrics: (Boolean) -> Unit,
-    onSpinning: (Boolean) -> Unit,
     onPrefetch: () -> Unit,
     onCancelPrefetch: () -> Unit,
     onClearLyrics: () -> Unit,
@@ -83,6 +83,8 @@ fun SettingsScreen(
     onTheme: (ThemeId) -> Unit,
     onMode: (ModePref) -> Unit,
     onMonoAccent: (MonoAccent) -> Unit,
+    onCoverColors: (Boolean) -> Unit,
+    onMotion: (MotionPref) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
         item {
@@ -108,6 +110,12 @@ fun SettingsScreen(
                 if (Appearance.themeId == ThemeId.MONO) {
                     OptionRow("Accent", MonoAccent.entries.map { it.label }, MonoAccent.entries.indexOf(Appearance.monoAccent)) { onMonoAccent(MonoAccent.entries[it]) }
                 }
+                OptionRow("Animations", MotionPref.entries.map { it.label }, MotionPref.entries.indexOf(Appearance.motion)) { onMotion(MotionPref.entries[it]) }
+                ToggleRow(
+                    "Couleurs de la pochette",
+                    "Le fond du lecteur et les accents prennent les couleurs de la pochette en cours, ajustées pour rester lisibles.",
+                    Appearance.coverColors, onCoverColors,
+                )
                 Row(Modifier.padding(horizontal = 24.dp)) {
                     DecoButton("Voir les palettes", onPreviewThemes, filled = false)
                 }
@@ -151,11 +159,6 @@ fun SettingsScreen(
                     }
                 }
             }
-        }
-
-        item { Section("Lecture") }
-        item {
-            ToggleRow("Disque en rotation", "Le vinyle tourne pendant la lecture. Désactivez pour un affichage immobile.", settings.spinningRecord, onSpinning)
         }
 
         item { Section("Discothèque") }

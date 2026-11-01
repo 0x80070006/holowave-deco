@@ -56,5 +56,6 @@ object DecoIcons {
     val Edit = icon("edit", stroke = "M5 19l1-4 9.5-9.5 3 3L9 18zM13.5 7.5l3 3")
     val Home = icon("home", stroke = "M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15v-5.8H9v5.8H5.5A1.5 1.5 0 0 1 4 19z")
     val Shelf = icon("shelf", stroke = "M5 4.5h3.5v15H5zM10.3 4.5h3.5v15h-3.5zM15.6 6.3l3.3-.9 3.2 13.1-3.3.9z")
+    val Moon = icon("moon", stroke = "M20 14.6A8.2 8.2 0 1 1 9.4 4a6.6 6.6 0 0 0 10.6 10.6z")
     val Disc = icon("disc", stroke = "M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17zM12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z")
 }

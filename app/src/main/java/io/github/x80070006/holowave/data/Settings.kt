@@ -8,8 +8,6 @@ import kotlinx.coroutines.flow.asStateFlow
 data class AppSettings(
     /** Ask lrclib.net for lyrics that are neither embedded nor cached. */
     val onlineLyrics: Boolean = true,
-    /** Keep the record spinning animation (some people find it distracting). */
-    val spinningRecord: Boolean = true,
     /** Folders to index (MediaStore relative paths); empty means all of them. */
     val sourceFolders: Set<String> = emptySet(),
     /** Also list sound-only WebM / 3GP files, which Android files under videos. */
@@ -24,7 +22,6 @@ class Settings(context: Context) {
     private val _state = MutableStateFlow(
         AppSettings(
             onlineLyrics = prefs.getBoolean(KEY_ONLINE_LYRICS, true),
-            spinningRecord = prefs.getBoolean(KEY_SPINNING, true),
             sourceFolders = prefs.getStringSet(KEY_FOLDERS, null).orEmpty()
                 .mapNotNull(SourceFolders::normalize).take(SourceFolders.MAX_SELECTED).toSet(),
             videoContainers = prefs.getBoolean(KEY_VIDEO_CONTAINERS, false),
@@ -36,11 +33,6 @@ class Settings(context: Context) {
     fun setOnlineLyrics(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_ONLINE_LYRICS, enabled).apply()
         _state.value = _state.value.copy(onlineLyrics = enabled)
-    }
-
-    fun setSpinningRecord(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SPINNING, enabled).apply()
-        _state.value = _state.value.copy(spinningRecord = enabled)
     }
 
     fun setSourceFolders(folders: Set<String>) {
@@ -69,7 +61,6 @@ class Settings(context: Context) {
 
     private companion object {
         const val KEY_ONLINE_LYRICS = "online_lyrics"
-        const val KEY_SPINNING = "spinning_record"
         const val KEY_FOLDERS = "source_folders"
         const val KEY_FIRST_SCAN_DONE = "first_scan_done"
         const val KEY_VIDEO_CONTAINERS = "video_containers"
