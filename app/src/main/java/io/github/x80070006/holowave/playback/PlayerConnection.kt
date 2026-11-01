@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -13,7 +14,10 @@ import io.github.x80070006.holowave.data.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
@@ -49,8 +53,23 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
     private var ticker: Job? = null
     private val pending = ArrayList<(MediaController) -> Unit>()
 
+    private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    /** Title of a track that could not be played (unsupported or damaged file). */
+    val errors: SharedFlow<String> = _errors.asSharedFlow()
+
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = publish(player)
+
+        override fun onPlayerError(error: PlaybackException) {
+            val c = controller ?: return
+            _errors.tryEmit(c.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty())
+            // Skip the unreadable file instead of leaving the queue stuck.
+            if (c.hasNextMediaItem()) {
+                c.seekToNextMediaItem()
+                c.prepare()
+                c.play()
+            }
+        }
     }
 
     fun connect() {
@@ -84,11 +103,19 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         }
     }
 
-    fun play(tracks: List<Track>, startIndex: Int, shuffle: Boolean = false) {
-        if (tracks.isEmpty()) return
+    fun play(all: List<Track>, startIndex: Int, shuffle: Boolean = false) {
+        if (all.isEmpty()) return
+        val wanted = all[startIndex.coerceIn(0, all.lastIndex)]
+        if (!wanted.playable) {
+            _errors.tryEmit(wanted.title)
+            return
+        }
+        // Formats nobody can decode (WMA, AIFF…) stay in the library but never enter the queue.
+        val tracks = all.filter { it.playable }
+        val start = tracks.indexOf(wanted).coerceAtLeast(0)
         withController { c ->
             c.shuffleModeEnabled = shuffle
-            c.setMediaItems(tracks.map(::toMediaItem), startIndex.coerceIn(0, tracks.lastIndex), 0L)
+            c.setMediaItems(tracks.map(::toMediaItem), start, 0L)
             c.prepare()
             c.play()
         }

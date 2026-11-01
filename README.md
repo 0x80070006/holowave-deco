@@ -36,6 +36,7 @@ La version 2 est une refonte complète de l'[ancienne HoloWave](https://github.c
 **Lecture**
 - Discothèque locale indexée via MediaStore, par **albums, artistes, dossiers, titres** et **playlists**
 - **Dossiers sources** : ajoutez manuellement les dossiers de votre choix (sélecteur Android) ou cochez-les dans l'arborescence détectée, sous-dossiers inclus, mémoire interne et carte SD
+- **Tous les formats audio courants** : MP3, M4A/M4B, AAC, FLAC, OGG, Opus, WAV, MKA, AMR, et même **WebM** et **3GP** sans image (option dans les réglages, qui demande l'accès aux vidéos car Android range ces fichiers parmi elles). Testé sur un Pixel 9a. Les formats qu'Android ne sait pas décoder (**WMA, AIFF**, APE…) restent visibles, signalés « non pris en charge », et n'entrent pas dans les files de lecture.
 - **Vraie recherche des morceaux** avec barre de progression : HOLOWAVE parcourt les dossiers et fait indexer par Android les fichiers audio qu'il n'avait pas encore repérés, ou seulement à moitié. Ça règle le cas classique des morceaux copiés qui n'apparaissent nulle part.
 - Recherche instantanée (insensible aux accents)
 - File d'attente : *lire ensuite*, *ajouter à la file*, aléatoire, répétition (file / titre)

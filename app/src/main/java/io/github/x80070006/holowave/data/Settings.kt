@@ -12,6 +12,8 @@ data class AppSettings(
     val spinningRecord: Boolean = true,
     /** Folders to index (MediaStore relative paths); empty means all of them. */
     val sourceFolders: Set<String> = emptySet(),
+    /** Also list sound-only WebM / 3GP files, which Android files under videos. */
+    val videoContainers: Boolean = false,
 )
 
 class Settings(context: Context) {
@@ -23,6 +25,7 @@ class Settings(context: Context) {
             spinningRecord = prefs.getBoolean(KEY_SPINNING, true),
             sourceFolders = prefs.getStringSet(KEY_FOLDERS, null).orEmpty()
                 .mapNotNull(SourceFolders::normalize).take(SourceFolders.MAX_SELECTED).toSet(),
+            videoContainers = prefs.getBoolean(KEY_VIDEO_CONTAINERS, false),
         )
     )
     val state: StateFlow<AppSettings> = _state.asStateFlow()
@@ -44,6 +47,11 @@ class Settings(context: Context) {
         _state.value = _state.value.copy(sourceFolders = clean)
     }
 
+    fun setVideoContainers(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_VIDEO_CONTAINERS, enabled).apply()
+        _state.value = _state.value.copy(videoContainers = enabled)
+    }
+
     /** True only the first time it is called: the very first launch gets a full storage scan. */
     fun consumeFirstScan(): Boolean {
         if (prefs.getBoolean(KEY_FIRST_SCAN_DONE, false)) return false
@@ -56,5 +64,6 @@ class Settings(context: Context) {
         const val KEY_SPINNING = "spinning_record"
         const val KEY_FOLDERS = "source_folders"
         const val KEY_FIRST_SCAN_DONE = "first_scan_done"
+        const val KEY_VIDEO_CONTAINERS = "video_containers"
     }
 }

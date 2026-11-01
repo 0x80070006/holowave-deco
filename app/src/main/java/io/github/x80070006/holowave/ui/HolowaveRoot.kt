@@ -1,6 +1,11 @@
 package io.github.x80070006.holowave.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -92,6 +97,25 @@ fun HolowaveRoot(vm: MainViewModel) {
     val message by vm.messages.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
 
+    val context = LocalContext.current
+    val videoPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO else null
+    val askVideo = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        vm.setVideoContainers(true, granted)
+    }
+    val onVideoContainers: (Boolean) -> Unit = { enable ->
+        when {
+            !enable -> {
+                vm.setVideoContainers(false, true)
+                // Secure by default: hand the video permission back when the feature is off.
+                if (videoPermission != null) runCatching { context.revokeSelfPermissionOnKill(videoPermission) }
+            }
+            videoPermission == null ||
+                ContextCompat.checkSelfPermission(context, videoPermission) == PackageManager.PERMISSION_GRANTED ->
+                vm.setVideoContainers(true, true)
+            else -> askVideo.launch(videoPermission)
+        }
+    }
+
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) vm.addPickedFolder(uri)
     }
@@ -167,6 +191,7 @@ fun HolowaveRoot(vm: MainViewModel) {
                         onScan = vm::scanStorage,
                         onStopScan = vm::cancelScan,
                         onSourceFolders = { vm.open(Route.SourceFolders) },
+                        onVideoContainers = onVideoContainers,
                     )
                     Route.SourceFolders -> {
                         val tree by vm.folderTree.collectAsStateWithLifecycle()

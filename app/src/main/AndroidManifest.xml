@@ -4,6 +4,9 @@
 
     <!-- Read-only access to the audio files of the device, nothing else. -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <!-- Optional, off by default: only requested when the user enables WebM / 3GP support,
+         because Android files those sound-only formats under videos. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

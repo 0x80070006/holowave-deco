@@ -86,7 +86,8 @@ fun TrackRow(
         }
         Column(Modifier.weight(1f)) {
             Text(
-                track.title, style = DecoType.Title, color = if (isCurrent) Deco.GoldBright else Deco.Cream,
+                track.title, style = DecoType.Title,
+                color = when { !track.playable -> Deco.Muted; isCurrent -> Deco.GoldBright; else -> Deco.Cream },
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(4.dp))
@@ -96,8 +97,9 @@ fun TrackRow(
                     Spacer(Modifier.width(8.dp))
                 }
                 Text(
-                    "${track.artist}  ·  ${formatDuration(track.durationMs)}",
-                    style = DecoType.Small, color = Deco.CreamDim, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    if (track.playable) "${track.artist}  ·  ${formatDuration(track.durationMs)}"
+                    else "Format non pris en charge  ·  ${track.artist}",
+                    style = DecoType.Small, color = if (track.playable) Deco.CreamDim else Deco.Copper, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
         }

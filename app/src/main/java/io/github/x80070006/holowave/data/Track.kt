@@ -20,8 +20,27 @@ data class Track(
     /** MediaStore volume, e.g. "external_primary" or an SD card id. */
     val volume: String,
     val dateAdded: Long,
+    /** WebM / 3GP / MP4 holding only sound: Android files them under videos. */
+    val inVideoIndex: Boolean = false,
+    val mime: String = "",
 ) {
-    val uri: Uri get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+    /** False for containers neither Android nor Media3 can decode (WMA, AIFF, APE…). */
+    val playable: Boolean get() = AudioSupport.isPlayable(mime)
+
+    val uri: Uri
+        get() = ContentUris.withAppendedId(
+            if (inVideoIndex) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            id,
+        )
+}
+
+object AudioSupport {
+    private val undecodable = setOf(
+        "audio/x-ms-wma", "audio/x-aiff", "audio/aiff", "audio/x-ape", "audio/ape", "audio/x-wavpack",
+        "audio/x-dsf", "audio/x-dff", "audio/x-tta", "audio/x-musepack", "audio/midi", "audio/x-midi", "audio/mid",
+    )
+
+    fun isPlayable(mime: String?): Boolean = mime.isNullOrBlank() || mime.lowercase() !in undecodable
 }
 
 enum class CollectionKind { ALBUM, ARTIST, FOLDER, PLAYLIST, FAVORITES }

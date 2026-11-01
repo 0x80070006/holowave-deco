@@ -239,6 +239,16 @@ class AudioScanner(private val context: Context) {
                 out["${c.getString(0)}|${c.getString(1).orEmpty()}|${c.getString(2)}"] = c.getLong(3)
             }
         }
+        // Sound-only WebM / 3GP are indexed as videos; readable only with the optional video permission.
+        runCatching {
+            context.contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Video.Media.VOLUME_NAME, MediaStore.Video.Media.RELATIVE_PATH, MediaStore.Video.Media.DISPLAY_NAME, MediaStore.Video.Media.DATE_MODIFIED),
+                null, null, null,
+            )?.use { c ->
+                while (c.moveToNext()) out["${c.getString(0)}|${c.getString(1).orEmpty()}|${c.getString(2)}"] = c.getLong(3)
+            }
+        }
         return out
     }
 
@@ -268,7 +278,8 @@ class AudioScanner(private val context: Context) {
         private const val CHUNK = 64
         private const val CHUNK_TIMEOUT_MS = 60_000L
         private val AUDIO_EXTENSIONS = setOf(
-            "mp3", "flac", "m4a", "m4b", "aac", "ogg", "oga", "opus", "wav", "aif", "aiff", "mka", "wma", "alac", "ape", "amr",
+            "mp3", "flac", "m4a", "m4b", "aac", "ogg", "oga", "opus", "wav", "aif", "aiff", "aifc", "mka", "wma", "alac", "ape",
+            "amr", "awb", "3ga", "3gp", "webm", "weba", "mid", "midi", "xmf", "ota", "imy", "dsf", "dff", "wv", "tta", "mpc", "ac3", "eac3", "dts",
         )
 
         fun isAudio(name: String, mime: String?): Boolean =

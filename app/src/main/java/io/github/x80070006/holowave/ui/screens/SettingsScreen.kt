@@ -63,6 +63,7 @@ fun SettingsScreen(
     onScan: () -> Unit,
     onStopScan: () -> Unit,
     onSourceFolders: () -> Unit,
+    onVideoContainers: (Boolean) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
         item {
@@ -155,12 +156,21 @@ fun SettingsScreen(
             if (scan != null) ScanPanel(scan, onStopScan, Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         }
 
+        item {
+            ToggleRow(
+                "Fichiers WebM et 3GP",
+                "Android range ces formats parmi les vidéos, même quand ils ne contiennent que du son. Les activer demande l'accès aux vidéos ; " +
+                    "seuls les fichiers sans image sont affichés, vos vraies vidéos restent ignorées. Désactiver rend l'autorisation à Android.",
+                settings.videoContainers, onVideoContainers,
+            )
+        }
+
         item { Section("Confidentialité") }
         item {
             Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
                 listOf(
                     "Aucun compte, aucune publicité, aucun traqueur, aucune statistique.",
-                    "Accès en lecture seule à l'audio de l'appareil, rien d'autre.",
+                    "Accès en lecture seule à l'audio de l'appareil ; l'accès aux vidéos n'est demandé que si vous activez WebM / 3GP.",
                     "Une seule connexion possible : lrclib.net en HTTPS, désactivable ci-dessus.",
                     "Playlists, favoris et paroles sont stockés dans l'espace privé de l'application et exclus des sauvegardes cloud.",
                 ).forEach { Bullet(it) }

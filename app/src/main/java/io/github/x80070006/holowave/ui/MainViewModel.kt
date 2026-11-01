@@ -139,6 +139,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         player.connect()
+        viewModelScope.launch {
+            player.errors.collect { title ->
+                _messages.value = "Lecture impossible" + (if (title.isNotBlank()) " : « $title »" else "") + " — format non pris en charge ou fichier abîmé"
+            }
+        }
     }
 
     val scan = app.library.scan
@@ -283,6 +288,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.settings.setSourceFolders(selection)
         _messages.value = "« ${SourceFolders.label(key)} » ajouté, recherche des morceaux…"
         app.library.scanStorage(setOf(key))
+    }
+
+    /** Turns WebM / 3GP support on or off; [granted] tells whether the video permission is available. */
+    fun setVideoContainers(enabled: Boolean, granted: Boolean) {
+        if (enabled && !granted) {
+            _messages.value = "Autorisation refusée : les fichiers WebM et 3GP restent masqués"
+            return
+        }
+        app.settings.setVideoContainers(enabled)
+        app.library.refresh()
+        if (enabled) app.library.scanStorage(settings.value.sourceFolders)
     }
 
     fun includeAllFolders() = app.settings.setSourceFolders(emptySet())

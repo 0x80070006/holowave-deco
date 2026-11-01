@@ -33,6 +33,8 @@ class MediaLibrary(
     private val resolver: ContentResolver,
     private val scope: CoroutineScope,
     private val scanner: AudioScanner,
+    /** Whether to also list sound-only files Android indexes as videos (needs the video permission). */
+    private val includeVideoContainers: () -> Boolean,
 ) {
 
     private val _state = MutableStateFlow<LibraryState>(LibraryState.Idle)
@@ -119,6 +121,7 @@ class MediaLibrary(
             MediaStore.Audio.Media.RELATIVE_PATH,
             MediaStore.Audio.Media.DATE_ADDED,
             MediaStore.Audio.Media.VOLUME_NAME,
+            MediaStore.Audio.Media.MIME_TYPE,
         )
         // Selection is constant: no user input is ever concatenated into SQL.
         // Files registered but not analysed yet have NULL type/duration: keep them, the player
@@ -142,6 +145,7 @@ class MediaLibrary(
             val iPath = c.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH)
             val iAdded = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
             val iVolume = c.getColumnIndexOrThrow(MediaStore.Audio.Media.VOLUME_NAME)
+            val iMime = c.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
             while (c.moveToNext() && tracks.size < MAX_TRACKS) {
                 val path = c.getString(iPath).orEmpty().trimEnd('/')
                 tracks += Track(
@@ -158,10 +162,67 @@ class MediaLibrary(
                     relativePath = if (path.isEmpty()) "" else "$path/",
                     volume = c.getString(iVolume) ?: SourceFolders.PRIMARY,
                     dateAdded = c.getLong(iAdded),
+                    mime = c.getString(iMime).orEmpty(),
                 )
             }
         }
-        return tracks
+        if (includeVideoContainers()) tracks += queryVideoContainers(MAX_TRACKS - tracks.size)
+        return tracks.sortedBy { it.title.lowercase() }
+    }
+
+    /**
+     * WebM, 3GP, MKV or MP4 files without any picture: Android stores them in the
+     * video index although they only hold sound. Real videos (with a width) are skipped.
+     */
+    private fun queryVideoContainers(limit: Int): List<Track> {
+        if (limit <= 0) return emptyList()
+        val projection = arrayOf(
+            MediaStore.Video.Media._ID,
+            MediaStore.Video.Media.TITLE,
+            MediaStore.Video.Media.ARTIST,
+            MediaStore.Video.Media.ALBUM,
+            MediaStore.Video.Media.DURATION,
+            MediaStore.Video.Media.RELATIVE_PATH,
+            MediaStore.Video.Media.DATE_ADDED,
+            MediaStore.Video.Media.VOLUME_NAME,
+            MediaStore.Video.Media.DISPLAY_NAME,
+            MediaStore.Video.Media.MIME_TYPE,
+        )
+        val selection = "(${MediaStore.Video.Media.WIDTH} IS NULL OR ${MediaStore.Video.Media.WIDTH} = 0)" +
+            " AND ${MediaStore.Video.Media.MIME_TYPE} IN (?, ?, ?, ?, ?)" +
+            " AND (${MediaStore.Video.Media.DURATION} >= ? OR ${MediaStore.Video.Media.DURATION} IS NULL)"
+        val args = arrayOf("video/webm", "video/3gpp", "video/3gpp2", "video/x-matroska", "video/mp4", MIN_DURATION_MS.toString())
+        val out = ArrayList<Track>()
+        try {
+            resolver.query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, projection, selection, args, null)?.use { c ->
+                while (c.moveToNext() && out.size < limit) {
+                    val path = c.getString(5).orEmpty().trimEnd('/')
+                    val file = c.getString(8).orEmpty()
+                    val title = c.getString(1).clean() ?: file.substringBeforeLast('.').clean() ?: "Sans titre"
+                    val album = c.getString(3).clean() ?: UNKNOWN_ALBUM
+                    out += Track(
+                        id = c.getLong(0),
+                        title = title,
+                        artist = c.getString(2).clean()?.takeUnless { it == "<unknown>" } ?: UNKNOWN_ARTIST,
+                        album = album,
+                        // No album id in the video index: a stable negative id per album name never collides with real ones.
+                        albumId = -1L - (album.lowercase().hashCode().toLong() and 0x7fffffffL),
+                        durationMs = c.getLong(4),
+                        trackNumber = 0,
+                        year = 0,
+                        folder = path.substringAfterLast('/').ifBlank { "Racine" },
+                        relativePath = if (path.isEmpty()) "" else "$path/",
+                        volume = c.getString(7) ?: SourceFolders.PRIMARY,
+                        dateAdded = c.getLong(6),
+                        inVideoIndex = true,
+                        mime = c.getString(9).orEmpty(),
+                    )
+                }
+            }
+        } catch (e: SecurityException) {
+            // Video permission not granted (or revoked): audio files are still listed.
+        }
+        return out
     }
 
     private fun String?.clean(): String? = this?.trim()?.take(MAX_FIELD)?.takeIf { it.isNotEmpty() }

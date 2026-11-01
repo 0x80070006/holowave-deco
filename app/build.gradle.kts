@@ -18,8 +18,8 @@ android {
         applicationId = "io.github.x80070006.holowave"
         minSdk = 29
         targetSdk = 36
-        versionCode = 22
-        versionName = "2.2.0"
+        versionCode = 23
+        versionName = "2.2.1"
     }
 
     signingConfigs {

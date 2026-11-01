@@ -16,7 +16,7 @@ class HolowaveApp : Application() {
     val appScope = MainScope()
 
     val settings by lazy { Settings(this) }
-    val library by lazy { MediaLibrary(contentResolver, appScope, AudioScanner(this)) }
+    val library by lazy { MediaLibrary(contentResolver, appScope, AudioScanner(this)) { settings.state.value.videoContainers } }
     val playlists by lazy { PlaylistStore(filesDir, appScope).also { it.load() } }
     val artwork by lazy { ArtworkLoader(contentResolver) }
     val lyrics by lazy { LyricsRepository(contentResolver, filesDir, LrcLibClient()) }
