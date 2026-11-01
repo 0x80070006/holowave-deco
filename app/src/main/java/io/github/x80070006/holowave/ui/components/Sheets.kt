@@ -234,3 +234,21 @@ fun QueueSheet(items: List<Pair<Int, Track>>, currentIndex: Int, onSkip: (Int) -
         }
     }
 }
+
+/** The four sort orders of the library. */
+@Composable
+fun SortSheet(current: io.github.x80070006.holowave.data.LibrarySort, onPick: (io.github.x80070006.holowave.data.LibrarySort) -> Unit, onDismiss: () -> Unit) {
+    val c = io.github.x80070006.holowave.ui.theme.HoloTheme.colors
+    DecoSheet(onDismiss) {
+        Text("Trier par", style = DecoType.Headline, color = c.text, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+        io.github.x80070006.holowave.data.LibrarySort.entries.forEach { sort ->
+            Row(
+                Modifier.fillMaxWidth().clickable { onDismiss(); onPick(sort) }.padding(horizontal = 24.dp, vertical = 15.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(sort.label, style = DecoType.Body, color = if (sort == current) c.primary else c.text, modifier = Modifier.weight(1f))
+                if (sort == current) Text("✓", style = DecoType.Title, color = c.primary)
+            }
+        }
+    }
+}

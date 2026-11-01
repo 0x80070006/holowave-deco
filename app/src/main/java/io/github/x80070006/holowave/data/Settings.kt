@@ -14,6 +14,11 @@ data class AppSettings(
     val videoContainers: Boolean = false,
     /** Keep a private, on-device journal of what is played (taste learning, exportable, erasable). */
     val recordHistory: Boolean = true,
+    /** Learn which songs are streamed in NouTube (needs notification access). Off until the user opts in. */
+    val captureStreaming: Boolean = false,
+    /** Library: collections as a grid (true) or a list, and the sort order (a LibrarySort name). */
+    val libraryGrid: Boolean = true,
+    val librarySort: String = "AZ",
 )
 
 class Settings(context: Context) {
@@ -26,6 +31,9 @@ class Settings(context: Context) {
                 .mapNotNull(SourceFolders::normalize).take(SourceFolders.MAX_SELECTED).toSet(),
             videoContainers = prefs.getBoolean(KEY_VIDEO_CONTAINERS, false),
             recordHistory = prefs.getBoolean(KEY_RECORD_HISTORY, true),
+            captureStreaming = prefs.getBoolean(KEY_CAPTURE, false),
+            libraryGrid = prefs.getBoolean(KEY_GRID, true),
+            librarySort = prefs.getString(KEY_SORT, null) ?: "AZ",
         )
     )
     val state: StateFlow<AppSettings> = _state.asStateFlow()
@@ -52,6 +60,21 @@ class Settings(context: Context) {
         _state.value = _state.value.copy(recordHistory = enabled)
     }
 
+    fun setCaptureStreaming(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CAPTURE, enabled).apply()
+        _state.value = _state.value.copy(captureStreaming = enabled)
+    }
+
+    fun setLibraryGrid(grid: Boolean) {
+        prefs.edit().putBoolean(KEY_GRID, grid).apply()
+        _state.value = _state.value.copy(libraryGrid = grid)
+    }
+
+    fun setLibrarySort(name: String) {
+        prefs.edit().putString(KEY_SORT, name).apply()
+        _state.value = _state.value.copy(librarySort = name)
+    }
+
     /** True only the first time it is called: the very first launch gets a full storage scan. */
     fun consumeFirstScan(): Boolean {
         if (prefs.getBoolean(KEY_FIRST_SCAN_DONE, false)) return false
@@ -65,5 +88,8 @@ class Settings(context: Context) {
         const val KEY_FIRST_SCAN_DONE = "first_scan_done"
         const val KEY_VIDEO_CONTAINERS = "video_containers"
         const val KEY_RECORD_HISTORY = "record_history"
+        const val KEY_CAPTURE = "capture_streaming"
+        const val KEY_GRID = "library_grid"
+        const val KEY_SORT = "library_sort"
     }
 }

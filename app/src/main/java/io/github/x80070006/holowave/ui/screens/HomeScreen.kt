@@ -35,7 +35,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.data.CollectionKind
+import io.github.x80070006.holowave.data.MixedItem
 import io.github.x80070006.holowave.data.ScanProgress
+import io.github.x80070006.holowave.data.StreamedTrack
 import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.data.TrackCollection
 import io.github.x80070006.holowave.ui.HomeData
@@ -45,6 +47,8 @@ import io.github.x80070006.holowave.ui.components.CoverImage
 import io.github.x80070006.holowave.ui.components.DecoButton
 import io.github.x80070006.holowave.ui.components.EmptyState
 import io.github.x80070006.holowave.ui.components.ScanBanner
+import io.github.x80070006.holowave.ui.components.SourceBadge
+import io.github.x80070006.holowave.ui.components.StreamedCover
 import io.github.x80070006.holowave.ui.components.rememberArtwork
 import io.github.x80070006.holowave.ui.components.running
 import io.github.x80070006.holowave.ui.theme.DecoType
@@ -62,6 +66,7 @@ fun HomeScreen(
     bottomPadding: State<Int>,
     onOpen: (CollectionKind, String) -> Unit,
     onPlay: (List<Track>, Int) -> Unit,
+    onOpenStream: (StreamedTrack) -> Unit,
     onSeeAll: () -> Unit,
     onChooseFolders: () -> Unit,
     onScan: () -> Unit,
@@ -126,13 +131,16 @@ fun HomeScreen(
                 }
             }
             else -> {
-                if (home.recentTracks.isNotEmpty()) {
+                if (home.recent.isNotEmpty()) {
                     item { SectionHeader("Écoutés récemment", onSeeAll) }
                     item {
+                        val locals = home.recent.filterIsInstance<MixedItem.Local>().map { it.track }
                         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            items(home.recentTracks.size) { i ->
-                                val t = home.recentTracks[i]
-                                TrackCard(t) { onPlay(home.recentTracks, i) }
+                            items(home.recent.size) { i ->
+                                when (val m = home.recent[i]) {
+                                    is MixedItem.Local -> TrackCard(m.track) { onPlay(locals, locals.indexOf(m.track)) }
+                                    is MixedItem.Stream -> StreamCard(m.track) { onOpenStream(m.track) }
+                                }
                             }
                         }
                     }
@@ -206,6 +214,21 @@ private fun TrackCard(track: Track, onClick: () -> Unit) {
         CoverImage(track, Modifier.size(144.dp).clip(RoundedCornerShape(16.dp)), size = 384)
         Spacer(Modifier.height(8.dp))
         Text(track.title, style = DecoType.Title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(track.artist, style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A song streamed in NouTube: tapping it opens NouTube, as HOLOWAVE cannot play YouTube itself. */
+@Composable
+private fun StreamCard(track: StreamedTrack, onClick: () -> Unit) {
+    val c = HoloTheme.colors
+    Column(Modifier.width(144.dp).clickable(onClick = onClick)) {
+        StreamedCover(track, Modifier.size(144.dp).clip(RoundedCornerShape(16.dp)))
+        Spacer(Modifier.height(8.dp))
+        Text(track.title, style = DecoType.Title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SourceBadge("Streaming")
+        }
         Text(track.artist, style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

@@ -50,6 +50,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Lets HOLOWAVE see which song NouTube is playing (title, artist, cover). It is bound by the
+             system only after the user grants "notification access", and it never reads notifications. -->
+        <service
+            android:name=".stream.NouTubeListenerService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- Exported only because the system media controls must bind to it;
              untrusted controllers are rejected in PlaybackService.onConnect. -->
         <service

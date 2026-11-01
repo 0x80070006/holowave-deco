@@ -8,6 +8,7 @@ import io.github.x80070006.holowave.data.PlaylistStore
 import io.github.x80070006.holowave.data.Settings
 import io.github.x80070006.holowave.history.HolowaveDb
 import io.github.x80070006.holowave.history.ListenLog
+import io.github.x80070006.holowave.history.StreamedStore
 import io.github.x80070006.holowave.lyrics.LrcLibClient
 import io.github.x80070006.holowave.lyrics.LyricsRepository
 import io.github.x80070006.holowave.playback.PlayerConnection
@@ -25,5 +26,7 @@ class HolowaveApp : Application() {
     val lyrics by lazy { LyricsRepository(contentResolver, filesDir, LrcLibClient()) }
     val player by lazy { PlayerConnection(this, appScope) }
     val appearance by lazy { AppearanceStore(this) }
-    val history by lazy { ListenLog(this, HolowaveDb.open(this), appScope) }
+    private val db by lazy { HolowaveDb.open(this) }
+    val history by lazy { ListenLog(this, db, appScope) }
+    val streamed by lazy { StreamedStore(this, db, appScope) }
 }

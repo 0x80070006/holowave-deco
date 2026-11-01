@@ -13,10 +13,15 @@ import io.github.x80070006.holowave.data.Collections
 import io.github.x80070006.holowave.data.LibraryState
 import io.github.x80070006.holowave.data.MediaLibrary
 import io.github.x80070006.holowave.data.Track
+import io.github.x80070006.holowave.data.LibrarySort
+import io.github.x80070006.holowave.data.LibrarySorting
+import io.github.x80070006.holowave.data.MixedItem
+import io.github.x80070006.holowave.data.StreamedTrack
 import io.github.x80070006.holowave.data.TrackCollection
 import io.github.x80070006.holowave.data.TrackKey
 import io.github.x80070006.holowave.data.TrackSource
 import io.github.x80070006.holowave.lyrics.LyricsLookup
+import io.github.x80070006.holowave.stream.NouTubeBridge
 import io.github.x80070006.holowave.ui.theme.ModePref
 import io.github.x80070006.holowave.ui.theme.MotionPref
 import io.github.x80070006.holowave.ui.theme.MonoAccent
@@ -39,8 +44,19 @@ import java.text.Normalizer
 import java.util.Locale
 
 enum class LibraryTab(val label: String) {
-    TRACKS("Titres"), ALBUMS("Albums"), ARTISTS("Artistes"), FOLDERS("Dossiers"), PLAYLISTS("Playlists")
+    PLAYLISTS("Playlists"), ALBUMS("Albums"), ARTISTS("Artistes"), TRACKS("Titres"), FOLDERS("Dossiers"), NOUTUBE("NouTube")
 }
+
+/** What the library shows for the selected chip, already filtered and sorted. */
+sealed interface LibraryContent {
+    data class Collections(val items: List<TrackCollection>, val pinned: TrackCollection? = null) : LibraryContent
+    data class Tracks(val items: List<Track>) : LibraryContent
+    /** NouTube: downloaded files and streamed songs in one list. */
+    data class Mixed(val items: List<MixedItem>) : LibraryContent
+}
+
+/** Position of each song in the listening history (0 = most recent), for the "recently played" sort. */
+class RecentRank(val local: Map<Long, Int> = emptyMap(), val stream: Map<String, Int> = emptyMap())
 
 /** The four tabs of the bottom bar. */
 enum class MainTab(val label: String) { HOME("Accueil"), SEARCH("Recherche"), LIBRARY("Bibliothèque"), SETTINGS("Réglages") }
@@ -50,7 +66,8 @@ enum class HomeFilter(val label: String) { ALL("Tout"), LOCAL("Musique locale"),
 
 /** Everything the home screen shows, already filtered. */
 data class HomeData(
-    val recentTracks: List<Track> = emptyList(),
+    /** Recently played: files on the device and songs streamed in NouTube, interleaved by recency. */
+    val recent: List<MixedItem> = emptyList(),
     /** Compact tiles of the "resume" grid: favourites first, then recent and newly added albums. */
     val resume: List<TrackCollection> = emptyList(),
     val addedAlbums: List<TrackCollection> = emptyList(),
@@ -100,6 +117,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _route = MutableStateFlow<List<Route>>(listOf(Route.Library))
     val route: StateFlow<List<Route>> = _route.asStateFlow()
 
+    private val _libraryFilter = MutableStateFlow("")
+    val libraryFilter: StateFlow<String> = _libraryFilter.asStateFlow()
+    private val _libraryFilterOpen = MutableStateFlow(false)
+    val libraryFilterOpen: StateFlow<Boolean> = _libraryFilterOpen.asStateFlow()
+
     private val _tab = MutableStateFlow(LibraryTab.ALBUMS)
     val tab: StateFlow<LibraryTab> = _tab.asStateFlow()
 
@@ -142,21 +164,85 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .map { (it as? LibraryState.Ready)?.tracks?.size ?: 0 }
         .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
-    val home: StateFlow<HomeData> = combine(catalog, app.history.recentKeys(60), _homeFilter) { c, keys, filter ->
+    val streamed: StateFlow<List<StreamedTrack>> = app.streamed.all.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val streamedCount: StateFlow<Int> = app.streamed.count.stateIn(viewModelScope, SharingStarted.Lazily, 0)
+
+    /** Listening order of everything heard, files and streamed songs alike. */
+    val recentRank: StateFlow<RecentRank> = combine(catalog, app.history.recentKeys(500)) { c, keys ->
+        val local = HashMap<Long, Int>()
+        val stream = HashMap<String, Int>()
+        keys.forEachIndexed { i, k ->
+            val t = c.byKey[k]
+            if (t != null) local[t.id] = i else stream[k] = i
+        }
+        RecentRank(local, stream)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, RecentRank())
+
+    val home: StateFlow<HomeData> = combine(catalog, app.history.recentKeys(60), _homeFilter, streamed) { c, keys, filter, streams ->
         val allowed: (Track) -> Boolean = when (filter) {
             HomeFilter.NOUTUBE -> { t -> t.source == TrackSource.NOUTUBE }
             HomeFilter.LOCAL -> { t -> t.source == TrackSource.LOCAL }
             else -> { _ -> true }
         }
-        val recent = keys.mapNotNull { c.byKey[it] }.filter(allowed).distinctBy { it.id }
+        val streamsAllowed = filter == HomeFilter.ALL || filter == HomeFilter.NOUTUBE
+        val byStreamKey = streams.associateBy { it.key }
+        val recent = ArrayList<MixedItem>()
+        val seen = HashSet<Any>()
+        for (k in keys) {
+            val local = c.byKey[k]
+            if (local != null) {
+                if (allowed(local) && seen.add(local.id)) recent += MixedItem.Local(local)
+            } else if (streamsAllowed) {
+                byStreamKey[k]?.let { if (seen.add(it.key)) recent += MixedItem.Stream(it) }
+            }
+        }
+        val recentLocal = recent.filterIsInstance<MixedItem.Local>().map { it.track }
         val added = c.albums.filter { a -> a.tracks.any(allowed) }
             .sortedByDescending { a -> a.tracks.maxOf { it.dateAdded } }.take(14)
-        val fromRecent = recent.map { it.albumId.toString() }.distinct().mapNotNull { c.albumsByKey[it] }
+        val fromRecent = recentLocal.map { it.albumId.toString() }.distinct().mapNotNull { c.albumsByKey[it] }
         val tiles = ArrayList<TrackCollection>()
         c.favorites?.takeIf { it.tracks.any(allowed) && filter != HomeFilter.NOUTUBE }?.let { tiles += it }
         (fromRecent + added).forEach { a -> if (tiles.size < 8 && tiles.none { it.key == a.key && it.kind == a.kind }) tiles += a }
-        HomeData(recent.take(20), tiles, added, recent.firstOrNull())
+        HomeData(recent.take(20), tiles, added, recentLocal.firstOrNull())
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, HomeData())
+
+    private class LibraryInputs(val c: Catalog, val tab: LibraryTab, val sort: LibrarySort, val filter: String)
+
+    val librarySort: StateFlow<LibrarySort> = settings.map { s -> LibrarySort.entries.firstOrNull { it.name == s.librarySort } ?: LibrarySort.AZ }
+        .distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, LibrarySort.AZ)
+
+    val libraryContent: StateFlow<LibraryContent> = combine(
+        combine(catalog, _tab, librarySort, _libraryFilter) { c, t, s, f -> LibraryInputs(c, t, s, f) },
+        streamed, recentRank,
+    ) { i, streams, rank ->
+        val rankOf: (Track) -> Int? = { rank.local[it.id] }
+        val f = i.filter
+        fun cols(list: List<TrackCollection>) =
+            LibrarySorting.collections(list.filter { LibrarySorting.matches(f, it.title, it.subtitle) }, i.sort, rankOf)
+        when (i.tab) {
+            LibraryTab.PLAYLISTS -> LibraryContent.Collections(
+                cols(i.c.playlists),
+                i.c.favorites?.takeIf { LibrarySorting.matches(f, "Titres aimés") || f.isBlank() },
+            )
+            LibraryTab.ALBUMS -> LibraryContent.Collections(cols(i.c.albums))
+            LibraryTab.ARTISTS -> LibraryContent.Collections(cols(i.c.artists))
+            LibraryTab.FOLDERS -> LibraryContent.Collections(cols(i.c.folders))
+            LibraryTab.TRACKS -> LibraryContent.Tracks(
+                LibrarySorting.tracks(i.c.tracks.filter { LibrarySorting.matches(f, it.title, it.artist, it.album) }, i.sort, rankOf),
+            )
+            LibraryTab.NOUTUBE -> {
+                val items = i.c.tracks.filter { it.source == TrackSource.NOUTUBE }.map { MixedItem.Local(it) } +
+                    streams.map { MixedItem.Stream(it) }
+                val kept = items.filter {
+                    when (it) {
+                        is MixedItem.Local -> LibrarySorting.matches(f, it.track.title, it.track.artist, it.track.album)
+                        is MixedItem.Stream -> LibrarySorting.matches(f, it.track.title, it.track.artist, it.track.album)
+                    }
+                }
+                LibraryContent.Mixed(LibrarySorting.mixed(kept, i.sort, rankOf) { rank.stream[it.key] })
+            }
+        }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, LibraryContent.Collections(emptyList()))
 
     val searchResults: StateFlow<List<Track>> = combine(catalog, _query) { c, q ->
         val needle = q.fold()
@@ -234,8 +320,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _homeFilter.value = filter
     }
 
+    fun toggleLibraryFilter() {
+        _libraryFilterOpen.value = !_libraryFilterOpen.value
+        if (!_libraryFilterOpen.value) _libraryFilter.value = ""
+    }
+
+    fun setLibraryFilter(q: String) {
+        _libraryFilter.value = q.take(100)
+    }
+
+    fun setLibrarySort(sort: LibrarySort) = app.settings.setLibrarySort(sort.name)
+    fun toggleLibraryGrid() = app.settings.setLibraryGrid(!settings.value.libraryGrid)
+
+    // --- NouTube
+    fun setCaptureStreaming(enabled: Boolean) = app.settings.setCaptureStreaming(enabled)
+
+    fun openInNouTube(track: StreamedTrack): Boolean {
+        val ok = NouTubeBridge.open(getApplication(), NouTubeBridge.trackUri(track))
+        if (!ok) _messages.value = "NouTube n'est pas installé : impossible d'ouvrir ce morceau"
+        return ok
+    }
+
+    fun clearStreamed() {
+        viewModelScope.launch {
+            app.streamed.clear()
+            _messages.value = "Morceaux streamés effacés"
+        }
+    }
+
     fun selectTab(tab: LibraryTab) {
         _tab.value = tab
+        _libraryFilter.value = ""
     }
 
     fun setQuery(q: String) {

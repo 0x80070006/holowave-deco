@@ -84,6 +84,13 @@ fun SettingsScreen(
     onMode: (ModePref) -> Unit,
     onMonoAccent: (MonoAccent) -> Unit,
     onCoverColors: (Boolean) -> Unit,
+    nouTubeInstalled: Boolean,
+    accessGranted: Boolean,
+    streamedCount: Int,
+    onCaptureStreaming: (Boolean) -> Unit,
+    onOpenAccess: () -> Unit,
+    onClearStreamed: () -> Unit,
+    onGetNouTube: () -> Unit,
     onMotion: (MotionPref) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
@@ -203,6 +210,55 @@ fun SettingsScreen(
                     "seuls les fichiers sans image sont affichés, vos vraies vidéos restent ignorées. Désactiver rend l'autorisation à Android.",
                 settings.videoContainers, onVideoContainers,
             )
+        }
+
+        item { Section("NouTube") }
+        item {
+            Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                Text(
+                    if (nouTubeInstalled) "NouTube est installé : HOLOWAVE peut l'ouvrir sur un morceau ou une recherche."
+                    else "NouTube est une application libre qui donne accès à YouTube Music sans pub ni compte. Installée, elle s'intègre ici.",
+                    style = DecoType.Small, color = Deco.CreamDim,
+                )
+                if (!nouTubeInstalled) {
+                    Spacer(Modifier.height(12.dp))
+                    DecoButton("Obtenir NouTube (F-Droid)", onGetNouTube, filled = false)
+                }
+            }
+        }
+        item {
+            ToggleRow(
+                "Capturer ce que j'écoute dans NouTube",
+                "Les morceaux écoutés en streaming apparaissent dans la catégorie NouTube, mélangés à vos fichiers. HOLOWAVE ne lit que le titre, " +
+                    "l'artiste et la pochette du lecteur de NouTube, jamais vos notifications. Rien ne quitte l'appareil.",
+                settings.captureStreaming, onCaptureStreaming,
+            )
+        }
+        if (settings.captureStreaming) {
+            item {
+                Column(Modifier.padding(horizontal = 24.dp, vertical = 6.dp)) {
+                    if (accessGranted) {
+                        Text("Accès accordé : la capture est active dès qu'un morceau joue dans NouTube.", style = DecoType.Small, color = Deco.Gold)
+                    } else {
+                        Text(
+                            "Dernière étape : autorisez HOLOWAVE dans « Accès aux notifications » d'Android. " +
+                                "Si Android affiche « Paramètre restreint », ouvrez Infos sur l'appli HOLOWAVE, touchez ⋮ puis « Autoriser les paramètres restreints », et recommencez.",
+                            style = DecoType.Small, color = Deco.CreamDim,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        DecoButton("Ouvrir les réglages Android", onOpenAccess)
+                    }
+                }
+            }
+        }
+        item {
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "$streamedCount morceau${if (streamedCount > 1) "x" else ""} streamé${if (streamedCount > 1) "s" else ""} enregistré${if (streamedCount > 1) "s" else ""}",
+                    style = DecoType.Title, color = Deco.Cream, modifier = Modifier.weight(1f),
+                )
+                DecoButton("Effacer", onClearStreamed, icon = DecoIcons.Trash, filled = false, enabled = streamedCount > 0)
+            }
         }
 
         item { Section("Historique d'écoute") }

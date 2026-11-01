@@ -100,11 +100,14 @@ fun TrackRow(
                     EqualizerBars(isPlaying, Modifier.size(11.dp))
                     Spacer(Modifier.width(8.dp))
                 }
+                if (track.source == TrackSource.NOUTUBE && track.playable) {
+                    SourceBadge("Téléchargé")
+                    Spacer(Modifier.width(8.dp))
+                }
                 Text(
                     when {
                         !track.playable -> "Format non pris en charge  ·  ${track.artist}"
-                        track.source == TrackSource.LOCAL -> "${track.artist}  ·  ${formatDuration(track.durationMs)}"
-                        else -> "NouTube  ·  ${track.artist}  ·  ${formatDuration(track.durationMs)}"
+                        else -> "${track.artist}  ·  ${formatDuration(track.durationMs)}"
                     },
                     style = DecoType.Small, color = if (track.playable) Deco.CreamDim else Deco.Copper, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
@@ -219,5 +222,23 @@ fun TabsRow(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifi
                 }
             }
         }
+    }
+}
+
+
+/**
+ * Where a song comes from, as an icon and a word (never colour alone): downloaded with
+ * NouTube, or streamed in NouTube.
+ */
+@Composable
+fun SourceBadge(label: String, modifier: Modifier = Modifier) {
+    val c = io.github.x80070006.holowave.ui.theme.HoloTheme.colors
+    Row(
+        modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(c.tertiary.copy(alpha = 0.20f)).padding(horizontal = 8.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.material3.Icon(io.github.x80070006.holowave.ui.theme.DecoIcons.Cloud, null, Modifier.size(12.dp), tint = c.tertiary)
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = DecoType.Small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), color = c.text, maxLines = 1)
     }
 }

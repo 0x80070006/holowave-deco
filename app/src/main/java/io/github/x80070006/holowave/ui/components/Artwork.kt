@@ -11,6 +11,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,5 +76,23 @@ fun CoverPlaceholder(seed: String, modifier: Modifier = Modifier) {
             drawCircle(fg, r, c, style = Stroke(1.5f))
             drawCircle(fg, r * 0.55f, c, style = Stroke(1f), alpha = 0.7f)
         }
+    }
+}
+
+
+/** Cover of a streamed song: the small JPEG captured from NouTube, or a generated one. */
+@Composable
+fun StreamedCover(track: io.github.x80070006.holowave.data.StreamedTrack, modifier: Modifier = Modifier) {
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, track.artworkPath) {
+        value = track.artworkPath?.let { path ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { android.graphics.BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull()
+            }
+        }
+    }
+    Box(modifier.background(Deco.TealDeep), contentAlignment = Alignment.Center) {
+        val b = bitmap
+        if (b != null) Image(b, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        else CoverPlaceholder(track.artist + track.title, Modifier.fillMaxSize())
     }
 }

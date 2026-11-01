@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -60,6 +61,7 @@ import io.github.x80070006.holowave.ui.components.NameDialog
 import io.github.x80070006.holowave.ui.components.PlaylistPicker
 import io.github.x80070006.holowave.ui.components.QueueSheet
 import io.github.x80070006.holowave.ui.components.SleepSheet
+import io.github.x80070006.holowave.ui.components.SortSheet
 import io.github.x80070006.holowave.ui.components.rememberArtwork
 import io.github.x80070006.holowave.ui.components.SheetAction
 import io.github.x80070006.holowave.ui.components.SheetRow
@@ -77,6 +79,8 @@ import io.github.x80070006.holowave.ui.screens.SettingsScreen
 import io.github.x80070006.holowave.ui.screens.SourceFoldersScreen
 import io.github.x80070006.holowave.ui.screens.ThemePreviewScreen
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.stream.NotificationAccess
+import io.github.x80070006.holowave.stream.NouTubeBridge
 import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
@@ -89,6 +93,7 @@ private sealed interface Overlay {
     data class RenamePlaylist(val key: String, val name: String) : Overlay
     data class DeletePlaylist(val key: String, val name: String) : Overlay
     data object Queue : Overlay
+    data object Sort : Overlay
     data object Sleep : Overlay
 }
 
@@ -114,6 +119,27 @@ fun HolowaveRoot(vm: MainViewModel) {
     val message by vm.messages.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
     val sleepEndsAt by vm.sleepEndsAt.collectAsStateWithLifecycle()
+    val libraryContent by vm.libraryContent.collectAsStateWithLifecycle()
+    val librarySort by vm.librarySort.collectAsStateWithLifecycle()
+    val libraryFilter by vm.libraryFilter.collectAsStateWithLifecycle()
+    val libraryFilterOpen by vm.libraryFilterOpen.collectAsStateWithLifecycle()
+    val streamedCount by vm.streamedCount.collectAsStateWithLifecycle()
+
+    // Notification access and NouTube's presence are system state: re-read them every time the app comes back.
+    val appContext = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var accessGranted by remember { mutableStateOf(NotificationAccess.isGranted(appContext)) }
+    var nouTubeInstalled by remember { mutableStateOf(NouTubeBridge.isInstalled(appContext)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                accessGranted = NotificationAccess.isGranted(appContext)
+                nouTubeInstalled = NouTubeBridge.isInstalled(appContext)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val listenCount by vm.listenCount.collectAsStateWithLifecycle()
     var confirmClearHistory by remember { mutableStateOf(false) }
@@ -182,6 +208,7 @@ fun HolowaveRoot(vm: MainViewModel) {
                                 scan = scan, bottomPadding = miniHeight,
                                 onOpen = { kind, key -> vm.open(Route.Detail(kind, key)) },
                                 onPlay = { list, i -> vm.play(list, i) },
+                                onOpenStream = { vm.openInNouTube(it) },
                                 onSeeAll = { vm.selectMainTab(MainTab.LIBRARY) },
                                 onChooseFolders = { vm.selectMainTab(MainTab.SETTINGS); vm.open(Route.SourceFolders) },
                                 onScan = vm::scanStorage,
@@ -193,11 +220,18 @@ fun HolowaveRoot(vm: MainViewModel) {
                                 onTrackMenu = { t -> onTrackMenu(t, null) },
                             )
                             MainTab.LIBRARY -> LibraryScreen(
-                                catalog = catalog,
+                                content = libraryContent,
+                                totalTracks = catalog.tracks.size,
+                                tab = tab,
+                                grid = settings.libraryGrid,
+                                sort = librarySort,
+                                filter = libraryFilter,
+                                filterOpen = libraryFilterOpen,
                                 loading = libraryState is LibraryState.Loading || libraryState is LibraryState.Idle,
-                                filtered = settings.sourceFolders.isNotEmpty(),
+                                foldersRestricted = settings.sourceFolders.isNotEmpty(),
+                                captureEnabled = settings.captureStreaming,
                                 scan = scan,
-                                tab = tab, playback = playback,
+                                playback = playback,
                                 bottomPadding = miniHeight,
                                 cb = LibraryCallbacks(
                                     onTab = vm::selectTab,
@@ -205,8 +239,13 @@ fun HolowaveRoot(vm: MainViewModel) {
                                     onPlay = { list, i, shuffle -> vm.play(list, i, shuffle) },
                                     onTrackMenu = onTrackMenu,
                                     onCreatePlaylist = { overlay = Overlay.NewPlaylist(null) },
-                                    onSearch = { vm.selectMainTab(MainTab.SEARCH) },
+                                    onToggleFilter = vm::toggleLibraryFilter,
+                                    onFilter = vm::setLibraryFilter,
+                                    onSort = { overlay = Overlay.Sort },
+                                    onToggleGrid = vm::toggleLibraryGrid,
                                     onChooseFolders = { vm.selectMainTab(MainTab.SETTINGS); vm.open(Route.SourceFolders) },
+                                    onOpenStream = { vm.openInNouTube(it) },
+                                    onNouTubeSettings = { vm.selectMainTab(MainTab.SETTINGS) },
                                 ),
                             )
                             MainTab.SETTINGS -> SettingsScreen(
@@ -235,6 +274,20 @@ fun HolowaveRoot(vm: MainViewModel) {
                                 onMonoAccent = vm::setMonoAccent,
                                 onCoverColors = vm::setCoverColors,
                                 onMotion = vm::setMotion,
+                                nouTubeInstalled = nouTubeInstalled,
+                                accessGranted = accessGranted,
+                                streamedCount = streamedCount,
+                                onCaptureStreaming = vm::setCaptureStreaming,
+                                onOpenAccess = { runCatching { appContext.startActivity(NotificationAccess.settingsIntent(appContext)) } },
+                                onClearStreamed = vm::clearStreamed,
+                                onGetNouTube = {
+                                    runCatching {
+                                        appContext.startActivity(
+                                            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(NouTubeBridge.FDROID_URL))
+                                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                                        )
+                                    }
+                                },
                             )
                         }
                     }
@@ -380,6 +433,11 @@ fun HolowaveRoot(vm: MainViewModel) {
 
         when (val o = overlay) {
             null -> Unit
+            Overlay.Sort -> SortSheet(
+                current = librarySort,
+                onPick = vm::setLibrarySort,
+                onDismiss = { if (overlay == o) overlay = null },
+            )
             Overlay.Queue -> QueueSheet(
                 items = playback.queueIds.mapIndexedNotNull { i, id -> catalog.byId[id]?.let { i to it } },
                 currentIndex = playback.queueIndex,
