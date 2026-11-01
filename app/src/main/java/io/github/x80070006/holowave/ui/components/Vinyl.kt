@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.data.Track
+import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.ui.theme.Look
 import kotlin.math.roundToInt
 
 /** Rotation angle that advances only while [spinning], so the record stops where it was. */
@@ -119,7 +121,7 @@ private fun DrawScope.drawVinyl(label: ImageBitmap?, rotation: Float, labelTint:
     }
     drawCircle(Deco.Gold, lr, c, style = Stroke(2f))
     drawCircle(Deco.Gold, lr * 0.93f, c, alpha = 0.5f, style = Stroke(0.8f))
-    drawCircle(Deco.Ink, r * 0.028f, c)
+    drawCircle(Deco.Vinyl, r * 0.028f, c)
     drawCircle(Deco.GoldBright, r * 0.028f, c, style = Stroke(1.4f))
 }
 
@@ -157,11 +159,11 @@ fun SleeveAndRecord(
             Modifier
                 .offset(y = top)
                 .size(sleeve)
-                .shadow(18.dp, RectangleShape, ambientColor = Color.Black, spotColor = Color.Black),
+                .shadow(18.dp, if (Look.ornate) RectangleShape else RoundedCornerShape(percent = 9), ambientColor = Color.Black, spotColor = Color.Black),
         ) {
             CoverImage(track, Modifier.size(sleeve).decoFrame(Deco.Gold, inset = 6.dp, alpha = 0.9f), size = 768)
             // Sleeve opening: a soft shadow along the right edge.
-            Canvas(Modifier.size(sleeve)) {
+            if (Look.ornate) Canvas(Modifier.size(sleeve)) {
                 val w = size.width * 0.06f
                 drawRect(
                     Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f)), size.width - w, size.width),

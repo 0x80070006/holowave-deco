@@ -55,7 +55,7 @@ import io.github.x80070006.holowave.ui.components.NameDialog
 import io.github.x80070006.holowave.ui.components.PlaylistPicker
 import io.github.x80070006.holowave.ui.components.SheetAction
 import io.github.x80070006.holowave.ui.components.SheetRow
-import io.github.x80070006.holowave.ui.components.SteppedShape
+import io.github.x80070006.holowave.ui.components.decoShape
 import io.github.x80070006.holowave.ui.components.TrackMenu
 import io.github.x80070006.holowave.ui.screens.DetailScreen
 import io.github.x80070006.holowave.ui.screens.LibraryCallbacks
@@ -65,7 +65,9 @@ import io.github.x80070006.holowave.ui.screens.NowPlayingScreen
 import io.github.x80070006.holowave.ui.screens.PlayerCallbacks
 import io.github.x80070006.holowave.ui.screens.SettingsScreen
 import io.github.x80070006.holowave.ui.screens.SourceFoldersScreen
+import io.github.x80070006.holowave.ui.screens.ThemePreviewScreen
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
 
@@ -201,7 +203,12 @@ fun HolowaveRoot(vm: MainViewModel) {
                         onRecordHistory = vm::setRecordHistory,
                         onExportHistory = { runCatching { exportHistory.launch("holowave-historique.json") } },
                         onClearHistory = { confirmClearHistory = true },
+                        onPreviewThemes = { vm.open(Route.ThemePreview) },
+                        onTheme = vm::setTheme,
+                        onMode = vm::setMode,
+                        onMonoAccent = vm::setMonoAccent,
                     )
+                    Route.ThemePreview -> ThemePreviewScreen(bottomPadding = miniHeight, onBack = { vm.back() }, onApply = vm::setTheme)
                     Route.SourceFolders -> {
                         val tree by vm.folderTree.collectAsStateWithLifecycle()
                         val total by vm.allTrackCount.collectAsStateWithLifecycle()
@@ -363,7 +370,7 @@ fun HolowaveRoot(vm: MainViewModel) {
 
 @Composable
 private fun Toast(text: String, modifier: Modifier = Modifier) {
-    val shape = remember { SteppedShape(4.dp) }
+    val shape = remember(Appearance.colors) { decoShape(4.dp) }
     Box(
         modifier
             .padding(top = 56.dp)

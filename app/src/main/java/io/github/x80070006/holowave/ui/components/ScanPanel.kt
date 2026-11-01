@@ -36,7 +36,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.data.ScanProgress
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.ui.theme.Look
 import io.github.x80070006.holowave.ui.theme.DecoType
 
 val ScanProgress.running: Boolean get() = this is ScanProgress.Searching || this is ScanProgress.Indexing
@@ -84,7 +86,7 @@ fun DecoProgressBar(fraction: Float?, modifier: Modifier = Modifier) {
 /** Full scan report used in the settings and source-folder screens. */
 @Composable
 fun ScanPanel(progress: ScanProgress, onStop: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = remember { SteppedShape(5.dp) }
+    val shape = remember(Appearance.colors) { decoShape(5.dp) }
     Column(
         modifier
             .fillMaxWidth()

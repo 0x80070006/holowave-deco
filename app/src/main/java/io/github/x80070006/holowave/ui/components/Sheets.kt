@@ -45,7 +45,9 @@ import androidx.compose.ui.window.Dialog
 import io.github.x80070006.holowave.data.PlaylistStore
 import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.data.TrackCollection
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.ui.theme.Look
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
 
@@ -59,7 +61,7 @@ fun DecoSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Deco.InkRaised,
         contentColor = Deco.Cream,
-        shape = SteppedShape(8.dp),
+        shape = decoShape(8.dp),
         dragHandle = {
             Box(Modifier.padding(top = 12.dp, bottom = 4.dp).width(40.dp)) { DecoDivider() }
         },
@@ -131,7 +133,7 @@ fun NameDialog(title: String, initial: String, confirm: String, onConfirm: (Stri
     var value by remember { mutableStateOf(initial) }
     val focus = remember { FocusRequester() }
     Dialog(onDismissRequest = onDismiss) {
-        val shape = remember { SteppedShape(6.dp) }
+        val shape = remember(Appearance.colors) { decoShape(6.dp) }
         Column(
             Modifier
                 .fillMaxWidth()
@@ -173,7 +175,7 @@ fun NameDialog(title: String, initial: String, confirm: String, onConfirm: (Stri
 @Composable
 fun ConfirmDialog(title: String, body: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
-        val shape = remember { SteppedShape(6.dp) }
+        val shape = remember(Appearance.colors) { decoShape(6.dp) }
         Column(
             Modifier.fillMaxWidth().background(Deco.InkRaised, shape).border(1.dp, Deco.Gold.copy(alpha = 0.6f), shape).padding(24.dp),
         ) {

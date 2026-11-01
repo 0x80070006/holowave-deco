@@ -1,6 +1,7 @@
 package io.github.x80070006.holowave.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,11 +62,13 @@ import io.github.x80070006.holowave.ui.components.DecoDivider
 import io.github.x80070006.holowave.ui.components.DecoIconButton
 import io.github.x80070006.holowave.ui.components.EmptyState
 import io.github.x80070006.holowave.ui.components.SectionLabel
-import io.github.x80070006.holowave.ui.components.SteppedShape
+import io.github.x80070006.holowave.ui.components.decoShape
 import io.github.x80070006.holowave.ui.components.Sunburst
 import io.github.x80070006.holowave.ui.components.TabsRow
 import io.github.x80070006.holowave.ui.components.TrackRow
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.ui.theme.Look
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
 
@@ -242,6 +245,24 @@ private fun LazyGridScope.searchResults(results: List<Track>, playback: Playback
 
 @Composable
 private fun Header(trackCount: Int, onSearch: () -> Unit, onSettings: () -> Unit) {
+    if (!Look.ornate) {
+        Row(
+            Modifier.fillMaxWidth().statusBarsPadding().padding(start = 24.dp, end = 8.dp, top = 14.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Holowave", style = DecoType.Display, color = Deco.Cream)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (trackCount > 0) "$trackCount titres sur l'appareil" else "Votre musique, hors ligne",
+                    style = DecoType.Small, color = Deco.CreamDim,
+                )
+            }
+            DecoIconButton(DecoIcons.Search, "Rechercher", onSearch, tint = Deco.Cream)
+            DecoIconButton(DecoIcons.Tune, "Réglages", onSettings, tint = Deco.Cream)
+        }
+        return
+    }
     Box(Modifier.fillMaxWidth()) {
         Sunburst(Modifier.matchParentSize(), rays = 29, origin = Offset(0.5f, 0.92f), spreadDegrees = 170f, alpha = 0.10f)
         Column(Modifier.statusBarsPadding().padding(top = 4.dp, bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -270,12 +291,12 @@ private fun Header(trackCount: Int, onSearch: () -> Unit, onSettings: () -> Unit
 @Composable
 private fun SearchField(query: String, onQuery: (String) -> Unit) {
     val focus = remember { FocusRequester() }
-    val shape = remember { SteppedShape(4.dp) }
+    val shape = remember(Appearance.colors) { decoShape(4.dp) }
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp)
-            .border(1.dp, Deco.Gold.copy(alpha = 0.6f), shape)
+            .then(if (Look.ornate) Modifier.border(1.dp, Deco.Gold.copy(alpha = 0.6f), shape) else Modifier.background(Deco.TealDeep, shape))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

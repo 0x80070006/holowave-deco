@@ -11,6 +11,7 @@ import io.github.x80070006.holowave.history.ListenLog
 import io.github.x80070006.holowave.lyrics.LrcLibClient
 import io.github.x80070006.holowave.lyrics.LyricsRepository
 import io.github.x80070006.holowave.playback.PlayerConnection
+import io.github.x80070006.holowave.ui.theme.AppearanceStore
 import kotlinx.coroutines.MainScope
 
 /** Manual dependency container: a handful of singletons, no reflection, no DI framework. */
@@ -23,5 +24,6 @@ class HolowaveApp : Application() {
     val artwork by lazy { ArtworkLoader(contentResolver) }
     val lyrics by lazy { LyricsRepository(contentResolver, filesDir, LrcLibClient()) }
     val player by lazy { PlayerConnection(this, appScope) }
+    val appearance by lazy { AppearanceStore(this) }
     val history by lazy { ListenLog(this, HolowaveDb.open(this), appScope) }
 }

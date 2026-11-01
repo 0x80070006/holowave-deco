@@ -17,7 +17,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.view.WindowCompat
 import io.github.x80070006.holowave.ui.HolowaveRoot
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.MainViewModel
 import io.github.x80070006.holowave.ui.screens.WelcomeScreen
 import io.github.x80070006.holowave.ui.theme.HolowaveTheme
@@ -46,7 +49,16 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         refreshPermission()
+        (application as HolowaveApp).appearance.restoreBlocking()
+        Appearance.readSystemMotion(this)
         setContent {
+            // Dark icons on the light look, light icons on the dark ones.
+            LaunchedEffect(Appearance.isDark) {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !Appearance.isDark
+                    isAppearanceLightNavigationBars = !Appearance.isDark
+                }
+            }
             HolowaveTheme {
                 if (granted) HolowaveRoot(vm)
                 else WelcomeScreen(

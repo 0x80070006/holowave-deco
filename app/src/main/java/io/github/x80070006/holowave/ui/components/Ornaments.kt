@@ -14,6 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import io.github.x80070006.holowave.ui.theme.Look
+import io.github.x80070006.holowave.ui.theme.caps
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -38,11 +42,16 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.Deco
 import io.github.x80070006.holowave.ui.theme.DecoType
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+
+/** Stepped corners for the Art Déco look, soft rounded corners for the modern ones. */
+fun decoShape(step: Dp = 6.dp): Shape =
+    RoundedCornerShape(if (step.value <= 4f) 8.dp else if (step.value <= 6f) 16.dp else 28.dp)
 
 /** Rectangle with stepped (notched) corners, the signature Art Deco silhouette. */
 class SteppedShape(private val step: Dp = 6.dp) : Shape {
@@ -72,6 +81,7 @@ fun Sunburst(
     spreadDegrees: Float = 180f,
     alpha: Float = 0.12f,
 ) {
+    if (!Look.ornate) return
     Canvas(modifier) {
         val o = Offset(size.width * origin.x, size.height * origin.y)
         val radius = size.maxDimension * 1.2f
@@ -90,6 +100,10 @@ fun Sunburst(
 /** Hairline — diamond — hairline. */
 @Composable
 fun DecoDivider(modifier: Modifier = Modifier, color: Color = Deco.Gold) {
+    if (!Look.ornate) {
+        Box(modifier.fillMaxWidth().height(1.dp).background(Deco.InkLine))
+        return
+    }
     Canvas(modifier.fillMaxWidth().height(12.dp)) {
         val cy = size.height / 2
         val cx = size.width / 2
@@ -112,7 +126,10 @@ fun DecoDivider(modifier: Modifier = Modifier, color: Color = Deco.Gold) {
 }
 
 /** Double brass frame with corner studs, drawn over the content (album covers, cards). */
-fun Modifier.decoFrame(color: Color = Deco.Gold, inset: Dp = 4.dp, alpha: Float = 1f): Modifier = drawWithContent {
+fun Modifier.decoFrame(color: Color = Deco.Gold, inset: Dp = 4.dp, alpha: Float = 1f): Modifier =
+    if (!Look.ornate) clip(RoundedCornerShape(percent = 9)) else decoFrameOrnate(color, inset, alpha)
+
+private fun Modifier.decoFrameOrnate(color: Color, inset: Dp, alpha: Float): Modifier = drawWithContent {
     drawContent()
     val i = inset.toPx()
     val c = color.copy(alpha = color.alpha * alpha)
@@ -130,14 +147,16 @@ fun Modifier.decoFrame(color: Color = Deco.Gold, inset: Dp = 4.dp, alpha: Float 
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier, color: Color = Deco.Gold) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Canvas(Modifier.size(7.dp)) {
-            val p = Path().apply {
-                moveTo(size.width / 2, 0f); lineTo(size.width, size.height / 2); lineTo(size.width / 2, size.height); lineTo(0f, size.height / 2); close()
+        if (Look.ornate) {
+            Canvas(Modifier.size(7.dp)) {
+                val p = Path().apply {
+                    moveTo(size.width / 2, 0f); lineTo(size.width, size.height / 2); lineTo(size.width / 2, size.height); lineTo(0f, size.height / 2); close()
+                }
+                drawPath(p, color)
             }
-            drawPath(p, color)
+            Spacer(Modifier.width(10.dp))
         }
-        Spacer(Modifier.width(10.dp))
-        Text(text.uppercase(), style = DecoType.Caps, color = color)
+        Text(text.caps(), style = DecoType.Caps, color = color)
     }
 }
 
@@ -168,7 +187,7 @@ fun DecoIconButton(
     }
 }
 
-/** Primary action: brass-filled stepped plaque. Secondary: hairline outline. */
+/** Primary action: filled plaque (brass in Art Déco, accent pill otherwise). Secondary: outline. */
 @Composable
 fun DecoButton(
     text: String,
@@ -178,21 +197,23 @@ fun DecoButton(
     filled: Boolean = true,
     enabled: Boolean = true,
 ) {
-    val shape = remember { SteppedShape(4.dp) }
+    val shape = remember(Appearance.colors) { if (Look.ornate) SteppedShape(4.dp) else RoundedCornerShape(50) }
+    val fill: Brush = if (enabled) Deco.goldBrush else Brush.linearGradient(listOf(Deco.GoldDim, Deco.GoldDim))
     val base = modifier
         .height(46.dp)
         .then(
-            if (filled) Modifier.background(if (enabled) Deco.goldBrush else Brush.linearGradient(listOf(Deco.GoldDim, Deco.GoldDim)), shape)
-            else Modifier.border(1.dp, Deco.Gold.copy(alpha = if (enabled) 0.8f else 0.3f), shape)
+            if (filled) Modifier.background(fill, shape)
+            else Modifier.border(if (Look.ornate) 1.dp else 1.5.dp, Deco.Gold.copy(alpha = if (enabled) 0.8f else 0.3f), shape)
         )
+        .clip(shape)
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
         .padding(horizontal = 20.dp)
-    val fg = if (filled) Deco.Ink else Deco.Gold
+    val fg = if (filled) Deco.OnAccent else Deco.Gold
     Row(base, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) {
             Icon(icon, null, Modifier.size(18.dp), tint = fg)
             Spacer(Modifier.width(10.dp))
         }
-        Text(text.uppercase(), style = DecoType.Caps, color = fg, textAlign = TextAlign.Center)
+        Text(text.caps(), style = DecoType.Caps, color = fg, textAlign = TextAlign.Center)
     }
 }

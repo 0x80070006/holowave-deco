@@ -31,11 +31,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.data.TrackSource
 import io.github.x80070006.holowave.data.TrackCollection
 import io.github.x80070006.holowave.data.formatDuration
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.ui.theme.Look
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
 
@@ -66,7 +69,7 @@ fun TrackRow(
     modifier: Modifier = Modifier,
     leadingNumber: Int? = null,
 ) {
-    val shape = remember { SteppedShape(3.dp) }
+    val shape = remember(Appearance.colors) { decoShape(3.dp) }
     Row(
         modifier
             .fillMaxWidth()
@@ -176,11 +179,23 @@ fun Hairline(modifier: Modifier = Modifier) {
 fun TabsRow(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     androidx.compose.foundation.lazy.LazyRow(
         modifier,
-        horizontalArrangement = Arrangement.spacedBy(22.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (Look.ornate) 22.dp else 8.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
     ) {
         items(labels.size) { i ->
             val active = i == selected
+            if (!Look.ornate) {
+                Box(
+                    Modifier
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .background(if (active) Deco.Gold else Deco.TealDeep)
+                        .combinedClickable(onClick = { onSelect(i) })
+                        .padding(horizontal = 16.dp, vertical = 9.dp),
+                ) {
+                    Text(labels[i], style = DecoType.Title.copy(fontSize = 14.sp), color = if (active) Deco.OnAccent else Deco.CreamDim)
+                }
+                return@items
+            }
             Column(
                 Modifier.combinedClickable(onClick = { onSelect(i) }).padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

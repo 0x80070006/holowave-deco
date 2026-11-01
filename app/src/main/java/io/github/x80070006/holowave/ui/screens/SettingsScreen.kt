@@ -3,6 +3,7 @@ package io.github.x80070006.holowave.ui.screens
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,6 +32,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.x80070006.holowave.ui.theme.Appearance
+import io.github.x80070006.holowave.ui.theme.Look
+import io.github.x80070006.holowave.ui.theme.ModePref
+import io.github.x80070006.holowave.ui.theme.MonoAccent
+import io.github.x80070006.holowave.ui.theme.ThemeId
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import io.github.x80070006.holowave.BuildConfig
 import io.github.x80070006.holowave.data.AppSettings
 import io.github.x80070006.holowave.data.ScanProgress
@@ -68,6 +79,10 @@ fun SettingsScreen(
     onRecordHistory: (Boolean) -> Unit,
     onExportHistory: () -> Unit,
     onClearHistory: () -> Unit,
+    onPreviewThemes: () -> Unit,
+    onTheme: (ThemeId) -> Unit,
+    onMode: (ModePref) -> Unit,
+    onMonoAccent: (MonoAccent) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
         item {
@@ -78,6 +93,20 @@ fun SettingsScreen(
                 Text("Réglages", style = DecoType.Display, color = Deco.GoldBright, modifier = Modifier.padding(horizontal = 24.dp))
                 Spacer(Modifier.height(14.dp))
                 DecoDivider(Modifier.padding(horizontal = 24.dp))
+            }
+        }
+
+        item { Section("Apparence") }
+        item {
+            Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                OptionRow("Mode", ModePref.entries.map { it.label }, ModePref.entries.indexOf(Appearance.mode)) { onMode(ModePref.entries[it]) }
+                OptionRow("Thème", ThemeId.entries.map { it.label }, ThemeId.entries.indexOf(Appearance.themeId)) { onTheme(ThemeId.entries[it]) }
+                if (Appearance.themeId == ThemeId.MONO) {
+                    OptionRow("Accent", MonoAccent.entries.map { it.label }, MonoAccent.entries.indexOf(Appearance.monoAccent)) { onMonoAccent(MonoAccent.entries[it]) }
+                }
+                Row(Modifier.padding(horizontal = 24.dp)) {
+                    DecoButton("Voir les palettes", onPreviewThemes, filled = false)
+                }
             }
         }
 
@@ -211,7 +240,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(14.dp))
                 Text("HOLOWAVE  ${BuildConfig.VERSION_NAME}", style = DecoType.Caps, color = Deco.Gold)
                 Spacer(Modifier.height(6.dp))
-                Text("Polices Poiret One & Josefin Sans (SIL OFL) · Paroles LRCLIB", style = DecoType.Small, color = Deco.Muted)
+                Text("Police Manrope (SIL OFL) · Paroles LRCLIB", style = DecoType.Small, color = Deco.Muted)
             }
         }
     }
@@ -250,6 +279,18 @@ private fun ToggleRow(title: String, body: String, checked: Boolean, onChange: (
 @Composable
 private fun DecoSwitch(checked: Boolean) {
     val t by animateFloatAsState(if (checked) 1f else 0f, label = "switch")
+    if (!Look.ornate) {
+        Canvas(Modifier.size(52.dp, 30.dp)) {
+            val h = size.height
+            drawRoundRect(
+                androidx.compose.ui.graphics.lerp(Deco.TealDeep, Deco.Gold, t), cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2),
+            )
+            if (t < 0.5f) drawRoundRect(Deco.Muted.copy(alpha = 0.7f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2), style = Stroke(2f))
+            val cx = h / 2 + (size.width - h) * t
+            drawCircle(androidx.compose.ui.graphics.lerp(Deco.Muted, Deco.OnAccent, t), h * (0.28f + 0.1f * t), Offset(cx, h / 2))
+        }
+        return
+    }
     Canvas(Modifier.size(48.dp, 26.dp)) {
         val h = size.height
         val cut = h * 0.3f
@@ -285,5 +326,32 @@ private fun Bullet(text: String) {
         }
         Spacer(Modifier.width(12.dp))
         Text(text, style = DecoType.Small, color = Deco.CreamDim)
+    }
+}
+
+
+/** A label above a row of pill options; the selected one is filled with the primary colour. */
+@Composable
+private fun OptionRow(label: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Column {
+        Text(label, style = DecoType.Small, color = Deco.CreamDim, modifier = Modifier.padding(horizontal = 24.dp))
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(options.size) { i ->
+                val active = i == selected
+                Box(
+                    Modifier
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .background(if (active) Deco.Gold else Deco.TealDeep)
+                        .clickable { onSelect(i) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                ) {
+                    Text(options[i], style = DecoType.Title.copy(fontSize = 14.sp), color = if (active) Deco.OnAccent else Deco.CreamDim)
+                }
+            }
+        }
     }
 }

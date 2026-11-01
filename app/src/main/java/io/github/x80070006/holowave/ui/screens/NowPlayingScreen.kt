@@ -50,6 +50,9 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.DisposableEffect
+import io.github.x80070006.holowave.ui.theme.Look
+import io.github.x80070006.holowave.ui.theme.caps
 import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.data.formatDuration
 import io.github.x80070006.holowave.lyrics.Lyrics
@@ -62,9 +65,10 @@ import io.github.x80070006.holowave.ui.components.DecoDivider
 import io.github.x80070006.holowave.ui.components.DecoIconButton
 import io.github.x80070006.holowave.ui.components.SectionLabel
 import io.github.x80070006.holowave.ui.components.SleeveAndRecord
-import io.github.x80070006.holowave.ui.components.SteppedShape
+import io.github.x80070006.holowave.ui.components.decoShape
 import io.github.x80070006.holowave.ui.components.Sunburst
 import io.github.x80070006.holowave.ui.components.rememberArtwork
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.Deco
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
@@ -107,7 +111,10 @@ fun NowPlayingScreen(
         Modifier
             .fillMaxSize()
             .background(Deco.Ink)
-            .background(Brush.verticalGradient(0f to accent.copy(alpha = 0.55f), 0.55f to Deco.TealDeep.copy(alpha = 0.5f), 1f to Deco.Ink)),
+            .background(
+                if (Look.ornate) Brush.verticalGradient(0f to accent.copy(alpha = 0.55f), 0.55f to Deco.TealDeep.copy(alpha = 0.5f), 1f to Deco.Ink)
+                else Brush.verticalGradient(0f to accent.copy(alpha = tintStrength()), 0.6f to accent.copy(alpha = tintStrength() * 0.25f), 1f to Color.Transparent),
+            ),
     ) {
         Sunburst(Modifier.fillMaxWidth().height(420.dp), rays = 31, origin = Offset(0.5f, 0.0f), spreadDegrees = 360f, alpha = 0.07f)
         Column(
@@ -204,7 +211,7 @@ private fun PlayButton(playing: Boolean, onClick: () -> Unit) {
             .size(84.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, radius = 42.dp, color = Deco.Ink),
+                indication = ripple(bounded = false, radius = 42.dp, color = Deco.OnAccent),
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -213,6 +220,10 @@ private fun PlayButton(playing: Boolean, onClick: () -> Unit) {
     ) {
         Canvas(Modifier.size(84.dp)) {
             val r = size.minDimension / 2
+            if (!Look.ornate) {
+                drawCircle(Deco.Gold, r * 0.86f)
+                return@Canvas
+            }
             for (k in 0 until 24) {
                 val a = Math.toRadians(k * 15.0)
                 val inner = r * 0.86f
@@ -227,7 +238,7 @@ private fun PlayButton(playing: Boolean, onClick: () -> Unit) {
             drawCircle(Deco.goldBrush, r * 0.78f)
             drawCircle(Deco.Ink, r * 0.70f, style = Stroke(1.2f), alpha = 0.6f)
         }
-        Icon(if (playing) DecoIcons.Pause else DecoIcons.Play, null, Modifier.size(30.dp), tint = Deco.Ink)
+        Icon(if (playing) DecoIcons.Pause else DecoIcons.Play, null, Modifier.size(30.dp), tint = Deco.OnAccent)
     }
 }
 
@@ -262,13 +273,20 @@ fun SeekBar(position: State<Long>, durationMs: Long, onSeek: (Long) -> Unit, mod
         ) {
             width = size.width
             val cy = size.height / 2
-            drawLine(Deco.Cream.copy(alpha = 0.16f), Offset(0f, cy), Offset(size.width, cy), 2f)
+            if (Look.ornate) drawLine(Deco.Cream.copy(alpha = 0.16f), Offset(0f, cy), Offset(size.width, cy), 2f)
             val x = size.width * fraction
-            drawLine(Brush.horizontalGradient(listOf(Deco.Copper, Deco.GoldBright), 0f, x.coerceAtLeast(1f)), Offset(0f, cy), Offset(x, cy), 3f)
-            val d = if (dragging) 9.dp.toPx() else 6.dp.toPx()
-            val diamond = Path().apply { moveTo(x, cy - d); lineTo(x + d, cy); lineTo(x, cy + d); lineTo(x - d, cy); close() }
-            drawPath(diamond, Deco.GoldBright)
-            drawCircle(Deco.Ink, d * 0.28f, Offset(x, cy))
+            if (!Look.ornate) {
+                val th = 5.dp.toPx()
+                drawRoundRect(Deco.Cream.copy(alpha = 0.16f), Offset(0f, cy - th / 2), androidx.compose.ui.geometry.Size(size.width, th), androidx.compose.ui.geometry.CornerRadius(th / 2))
+                drawRoundRect(Deco.Gold, Offset(0f, cy - th / 2), androidx.compose.ui.geometry.Size(x.coerceAtLeast(th), th), androidx.compose.ui.geometry.CornerRadius(th / 2))
+                drawCircle(Deco.Gold, if (dragging) 10.dp.toPx() else 7.dp.toPx(), Offset(x, cy))
+            } else {
+                drawLine(Brush.horizontalGradient(listOf(Deco.Copper, Deco.GoldBright), 0f, x.coerceAtLeast(1f)), Offset(0f, cy), Offset(x, cy), 3f)
+                val d = if (dragging) 9.dp.toPx() else 6.dp.toPx()
+                val diamond = Path().apply { moveTo(x, cy - d); lineTo(x + d, cy); lineTo(x, cy + d); lineTo(x - d, cy); close() }
+                drawPath(diamond, Deco.GoldBright)
+                drawCircle(Deco.Ink, d * 0.28f, Offset(x, cy))
+            }
         }
         Row(Modifier.fillMaxWidth()) {
             val shown = if (dragging) (dragFraction * durationMs).toLong() else pos
@@ -281,24 +299,30 @@ fun SeekBar(position: State<Long>, durationMs: Long, onSeek: (Long) -> Unit, mod
 
 @Composable
 private fun LyricsCard(lyrics: LyricsUi, position: State<Long>, onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = remember { SteppedShape(6.dp) }
+    val shape = remember(Appearance.colors) { decoShape(6.dp) }
     Column(
         modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Deco.TealDeep.copy(alpha = 0.92f), Deco.Ink.copy(alpha = 0.92f))), shape)
-            .border(1.dp, Deco.Gold.copy(alpha = 0.5f), shape)
+            .then(
+                if (Look.ornate) Modifier
+                    .background(Brush.verticalGradient(listOf(Deco.TealDeep.copy(alpha = 0.92f), Deco.Ink.copy(alpha = 0.92f))), shape)
+                    .border(1.dp, Deco.Gold.copy(alpha = 0.5f), shape)
+                else Modifier.background(Deco.InkRaised.copy(alpha = if (Look.isLight) 0.85f else 0.9f), shape),
+            )
             .clickable(onClick = onOpen)
             .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(DecoIcons.Microphone, null, Modifier.size(18.dp), tint = Deco.Gold)
             Spacer(Modifier.width(10.dp))
-            Text("PAROLES", style = DecoType.Caps, color = Deco.Gold, modifier = Modifier.weight(1f))
+            Text("Paroles".caps(), style = DecoType.Caps, color = Deco.Gold, modifier = Modifier.weight(1f))
             Text("Plein écran", style = DecoType.Small, color = Deco.CreamDim)
         }
         Spacer(Modifier.height(14.dp))
-        DecoDivider(Modifier.padding(horizontal = 30.dp))
-        Spacer(Modifier.height(14.dp))
+        if (Look.ornate) {
+            DecoDivider(Modifier.padding(horizontal = 30.dp))
+            Spacer(Modifier.height(14.dp))
+        }
         when (lyrics) {
             LyricsUi.NoTrack, LyricsUi.Loading -> CardText("Recherche des paroles…", dim = true)
             is LyricsUi.Ready -> when (val l = lyrics.lookup) {
@@ -317,7 +341,7 @@ private fun LyricsCard(lyrics: LyricsUi, position: State<Long>, onOpen: () -> Un
                         }
                     }
                     is Lyrics.Plain -> CardText(ly.text.lineSequence().filter { it.isNotBlank() }.take(4).joinToString("\n"))
-                    is Lyrics.Instrumental -> CardText("Instrumental — laissez parler les cuivres.", dim = true)
+                    is Lyrics.Instrumental -> CardText("Instrumental : pas de paroles pour celui-ci.", dim = true)
                 }
                 LyricsLookup.Missing -> CardText("Aucune parole trouvée pour ce morceau. Touchez pour importer un fichier .lrc.", dim = true)
                 LyricsLookup.Offline -> CardText("Paroles indisponibles hors ligne. Touchez pour importer un fichier .lrc.", dim = true)
@@ -350,4 +374,10 @@ private fun UpNextRow(track: Track, onClick: () -> Unit) {
         }
         Text(formatDuration(track.durationMs), style = DecoType.Numeral, color = Deco.GoldDim)
     }
+}
+
+/** How strongly the cover colour tints a player background: gentle on paper, stronger for the living look. */
+internal fun tintStrength(): Float = when {
+    Look.isLight -> 0.38f
+    else -> 0.42f
 }

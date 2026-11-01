@@ -61,6 +61,7 @@ import io.github.x80070006.holowave.ui.components.DecoIconButton
 import io.github.x80070006.holowave.ui.components.Sunburst
 import io.github.x80070006.holowave.ui.components.decoFrame
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.ui.theme.Look
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
 
@@ -83,7 +84,10 @@ fun LyricsScreen(
         Modifier
             .fillMaxSize()
             .background(Deco.Ink)
-            .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.50f), Deco.TealDeep.copy(alpha = 0.85f), Deco.Ink))),
+            .background(
+                if (Look.ornate) Brush.verticalGradient(listOf(accent.copy(alpha = 0.50f), Deco.TealDeep.copy(alpha = 0.85f), Deco.Ink))
+                else Brush.verticalGradient(0f to accent.copy(alpha = tintStrength()), 0.75f to accent.copy(alpha = tintStrength() * 0.2f), 1f to Color.Transparent),
+            ),
     ) {
         Sunburst(Modifier.fillMaxSize(), rays = 21, origin = Offset(0.5f, 1.05f), spreadDegrees = 120f, alpha = 0.06f)
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {

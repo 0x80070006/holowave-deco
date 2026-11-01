@@ -3,6 +3,7 @@ agp = "9.4.1"
 kotlin = "2.4.20"
 ksp = "2.3.13"
 room = "2.8.5"
+datastore = "1.2.1"
 composeBom = "2026.09.00"
 activityCompose = "1.11.0"
 coreKtx = "1.16.0"
@@ -27,6 +28,7 @@ media3-session = { group = "androidx.media3", name = "media3-session", version.r
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 

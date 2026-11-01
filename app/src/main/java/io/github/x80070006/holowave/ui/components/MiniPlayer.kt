@@ -20,14 +20,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.playback.PlaybackState
+import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.Deco
+import io.github.x80070006.holowave.ui.theme.Look
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
 
@@ -42,13 +46,20 @@ fun MiniPlayer(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = remember { SteppedShape(5.dp) }
+    val shape = remember(Appearance.colors) { decoShape(5.dp) }
     Box(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp)
-            .background(Brush.horizontalGradient(listOf(Deco.TealDeep, Deco.InkRaised)), shape)
-            .border(1.dp, Deco.Gold.copy(alpha = 0.55f), shape)
+            .then(
+                if (Look.ornate) Modifier
+                    .background(Brush.horizontalGradient(listOf(Deco.TealDeep, Deco.InkRaised)), shape)
+                    .border(1.dp, Deco.Gold.copy(alpha = 0.55f), shape)
+                else Modifier
+                    .shadow(10.dp, shape, ambientColor = Color.Black.copy(alpha = 0.4f), spotColor = Color.Black.copy(alpha = 0.4f))
+                    .background(Deco.InkRaised, shape)
+                    .border(1.dp, Deco.InkLine, shape),
+            )
             .clickable(onClick = onOpen)
             .semantics { contentDescription = "Ouvrir le lecteur" },
     ) {

@@ -15,6 +15,9 @@ import io.github.x80070006.holowave.data.MediaLibrary
 import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.data.TrackCollection
 import io.github.x80070006.holowave.lyrics.LyricsLookup
+import io.github.x80070006.holowave.ui.theme.ModePref
+import io.github.x80070006.holowave.ui.theme.MonoAccent
+import io.github.x80070006.holowave.ui.theme.ThemeId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -41,6 +44,7 @@ sealed interface Route {
     data class Detail(val kind: CollectionKind, val key: String) : Route
     data object Settings : Route
     data object SourceFolders : Route
+    data object ThemePreview : Route
 }
 
 data class Catalog(
@@ -301,6 +305,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.library.refresh()
         if (enabled) app.library.scanStorage(settings.value.sourceFolders)
     }
+
+    fun setTheme(id: ThemeId) = app.appearance.setTheme(id)
+    fun setMode(mode: ModePref) = app.appearance.setMode(mode)
+    fun setMonoAccent(accent: MonoAccent) = app.appearance.setMonoAccent(accent)
 
     fun setRecordHistory(enabled: Boolean) = app.settings.setRecordHistory(enabled)
 
