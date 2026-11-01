@@ -64,7 +64,7 @@ fun SettingsScreen(
     storedLyrics: Int,
     prefetch: PrefetchProgress?,
     bottomPadding: State<Int>,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onOnlineLyrics: (Boolean) -> Unit,
     onSpinning: (Boolean) -> Unit,
     onPrefetch: () -> Unit,
@@ -87,10 +87,14 @@ fun SettingsScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
         item {
             Column(Modifier.statusBarsPadding()) {
-                Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    DecoIconButton(DecoIcons.Back, "Retour", onBack, tint = Deco.Gold)
+                if (onBack != null) {
+                    Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        DecoIconButton(DecoIcons.Back, "Retour", onBack, tint = Deco.Gold)
+                    }
+                } else {
+                    Spacer(Modifier.height(20.dp))
                 }
-                Text("Réglages", style = DecoType.Display, color = Deco.GoldBright, modifier = Modifier.padding(horizontal = 24.dp))
+                Text("Réglages", style = DecoType.Display, color = Deco.Cream, modifier = Modifier.padding(horizontal = 24.dp))
                 Spacer(Modifier.height(14.dp))
                 DecoDivider(Modifier.padding(horizontal = 24.dp))
             }

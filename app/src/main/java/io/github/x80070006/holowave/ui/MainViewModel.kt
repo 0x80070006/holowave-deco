@@ -14,6 +14,8 @@ import io.github.x80070006.holowave.data.LibraryState
 import io.github.x80070006.holowave.data.MediaLibrary
 import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.data.TrackCollection
+import io.github.x80070006.holowave.data.TrackKey
+import io.github.x80070006.holowave.data.TrackSource
 import io.github.x80070006.holowave.lyrics.LyricsLookup
 import io.github.x80070006.holowave.ui.theme.ModePref
 import io.github.x80070006.holowave.ui.theme.MonoAccent
@@ -39,10 +41,26 @@ enum class LibraryTab(val label: String) {
     TRACKS("Titres"), ALBUMS("Albums"), ARTISTS("Artistes"), FOLDERS("Dossiers"), PLAYLISTS("Playlists")
 }
 
+/** The four tabs of the bottom bar. */
+enum class MainTab(val label: String) { HOME("Accueil"), SEARCH("Recherche"), LIBRARY("Bibliothèque"), SETTINGS("Réglages") }
+
+/** Filter chips at the top of the home screen. */
+enum class HomeFilter(val label: String) { ALL("Tout"), LOCAL("Musique locale"), NOUTUBE("NouTube"), MIXES("Mixes") }
+
+/** Everything the home screen shows, already filtered. */
+data class HomeData(
+    val recentTracks: List<Track> = emptyList(),
+    /** Compact tiles of the "resume" grid: favourites first, then recent and newly added albums. */
+    val resume: List<TrackCollection> = emptyList(),
+    val addedAlbums: List<TrackCollection> = emptyList(),
+    /** Last thing played: its cover colours the top of the screen. */
+    val lastTrack: Track? = null,
+)
+
 sealed interface Route {
+    /** Root of the selected bottom tab. */
     data object Library : Route
     data class Detail(val kind: CollectionKind, val key: String) : Route
-    data object Settings : Route
     data object SourceFolders : Route
     data object ThemePreview : Route
 }
@@ -56,6 +74,9 @@ data class Catalog(
     val favorites: TrackCollection? = null,
     val favoriteIds: Set<Long> = emptySet(),
     val byId: Map<Long, Track> = emptyMap(),
+    /** Stable identity (see TrackKey) to track, to match the listening history. */
+    val byKey: Map<String, Track> = emptyMap(),
+    val albumsByKey: Map<String, TrackCollection> = emptyMap(),
 )
 
 sealed interface LyricsUi {
@@ -80,6 +101,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _tab = MutableStateFlow(LibraryTab.ALBUMS)
     val tab: StateFlow<LibraryTab> = _tab.asStateFlow()
+
+    private val _mainTab = MutableStateFlow(MainTab.HOME)
+    val mainTab: StateFlow<MainTab> = _mainTab.asStateFlow()
+
+    private val _homeFilter = MutableStateFlow(HomeFilter.ALL)
+    val homeFilter: StateFlow<HomeFilter> = _homeFilter.asStateFlow()
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -113,6 +140,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val allTrackCount: StateFlow<Int> = app.library.state
         .map { (it as? LibraryState.Ready)?.tracks?.size ?: 0 }
         .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+
+    val home: StateFlow<HomeData> = combine(catalog, app.history.recentKeys(60), _homeFilter) { c, keys, filter ->
+        val allowed: (Track) -> Boolean = when (filter) {
+            HomeFilter.NOUTUBE -> { t -> t.source == TrackSource.NOUTUBE }
+            HomeFilter.LOCAL -> { t -> t.source == TrackSource.LOCAL }
+            else -> { _ -> true }
+        }
+        val recent = keys.mapNotNull { c.byKey[it] }.filter(allowed).distinctBy { it.id }
+        val added = c.albums.filter { a -> a.tracks.any(allowed) }
+            .sortedByDescending { a -> a.tracks.maxOf { it.dateAdded } }.take(14)
+        val fromRecent = recent.map { it.albumId.toString() }.distinct().mapNotNull { c.albumsByKey[it] }
+        val tiles = ArrayList<TrackCollection>()
+        c.favorites?.takeIf { it.tracks.any(allowed) && filter != HomeFilter.NOUTUBE }?.let { tiles += it }
+        (fromRecent + added).forEach { a -> if (tiles.size < 8 && tiles.none { it.key == a.key && it.kind == a.kind }) tiles += a }
+        HomeData(recent.take(20), tiles, added, recent.firstOrNull())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, HomeData())
 
     val searchResults: StateFlow<List<Track>> = combine(catalog, _query) { c, q ->
         val needle = q.fold()
@@ -174,9 +217,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _playerOpen.value -> _playerOpen.value = false
             _route.value.size > 1 -> _route.value = _route.value.dropLast(1)
             _query.value.isNotEmpty() -> _query.value = ""
+            _mainTab.value != MainTab.HOME -> _mainTab.value = MainTab.HOME
             else -> return false
         }
         return true
+    }
+
+    /** Switching tabs always returns to the tab's own root screen. */
+    fun selectMainTab(tab: MainTab) {
+        _route.value = listOf(Route.Library)
+        _mainTab.value = tab
+    }
+
+    fun setHomeFilter(filter: HomeFilter) {
+        _homeFilter.value = filter
     }
 
     fun selectTab(tab: LibraryTab) {
@@ -422,7 +476,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 CollectionKind.FAVORITES, "favorites", "Coups de cœur",
                 "${favTracks.size} titre${if (favTracks.size > 1) "s" else ""}", favTracks,
             )
-            return Catalog(tracks, albums, artists, folders, playlists, favorites, col.favorites, lib.byId)
+            return Catalog(
+                tracks, albums, artists, folders, playlists, favorites, col.favorites, lib.byId,
+                byKey = tracks.associateBy { TrackKey.of(it) },
+                albumsByKey = albums.associateBy { it.key },
+            )
         }
     }
 }

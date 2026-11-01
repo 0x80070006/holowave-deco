@@ -54,5 +54,7 @@ object DecoIcons {
     val Sync = icon("sync", stroke = "M12 8.2a3.8 3.8 0 1 1 0 7.6 3.8 3.8 0 0 1 0-7.6zM12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3")
     val Trash = icon("trash", stroke = "M5 7h14M9.5 7V4.8h5V7M7 7l.8 12.2h8.4L17 7M10.3 10.5v5.5M13.7 10.5v5.5")
     val Edit = icon("edit", stroke = "M5 19l1-4 9.5-9.5 3 3L9 18zM13.5 7.5l3 3")
+    val Home = icon("home", stroke = "M4 11.2 12 4l8 7.2V19a1.5 1.5 0 0 1-1.5 1.5H15v-5.8H9v5.8H5.5A1.5 1.5 0 0 1 4 19z")
+    val Shelf = icon("shelf", stroke = "M5 4.5h3.5v15H5zM10.3 4.5h3.5v15h-3.5zM15.6 6.3l3.3-.9 3.2 13.1-3.3.9z")
     val Disc = icon("disc", stroke = "M12 3.5a8.5 8.5 0 1 1 0 17 8.5 8.5 0 0 1 0-17zM12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z")
 }

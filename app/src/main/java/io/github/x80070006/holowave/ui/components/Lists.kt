@@ -156,11 +156,15 @@ fun ArtistRow(collection: TrackCollection, onClick: () -> Unit) {
 @Composable
 fun EmptyState(title: String, body: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
     Column(modifier.fillMaxWidth().padding(horizontal = 36.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(120.dp, 70.dp)) {
-            Sunburst(Modifier.matchParentSize(), alpha = 0.5f, rays = 13)
+        Canvas(Modifier.size(132.dp, 76.dp)) {
+            val r = size.height / 2
+            val y = size.height / 2
+            drawCircle(Deco.TealBright.copy(alpha = 0.85f), r, Offset(size.width / 2 + r * 0.95f, y))
+            drawCircle(Deco.Copper.copy(alpha = 0.85f), r, Offset(size.width / 2 - r * 0.95f, y))
+            drawCircle(Deco.Gold.copy(alpha = 0.9f), r, Offset(size.width / 2, y))
         }
-        Spacer(Modifier.height(18.dp))
-        Text(title, style = DecoType.Headline, color = Deco.GoldBright, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Spacer(Modifier.height(20.dp))
+        Text(title, style = DecoType.Headline, color = Deco.Cream, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(10.dp))
         Text(body, style = DecoType.Body, color = Deco.CreamDim, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         if (action != null) {

@@ -21,12 +21,14 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -50,6 +52,7 @@ import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.ui.components.ConfirmDialog
 import io.github.x80070006.holowave.ui.components.DecoSheet
 import io.github.x80070006.holowave.ui.components.LocalArtwork
+import io.github.x80070006.holowave.ui.components.HoloBottomBar
 import io.github.x80070006.holowave.ui.components.MiniPlayer
 import io.github.x80070006.holowave.ui.components.NameDialog
 import io.github.x80070006.holowave.ui.components.PlaylistPicker
@@ -58,11 +61,13 @@ import io.github.x80070006.holowave.ui.components.SheetRow
 import io.github.x80070006.holowave.ui.components.decoShape
 import io.github.x80070006.holowave.ui.components.TrackMenu
 import io.github.x80070006.holowave.ui.screens.DetailScreen
+import io.github.x80070006.holowave.ui.screens.HomeScreen
 import io.github.x80070006.holowave.ui.screens.LibraryCallbacks
 import io.github.x80070006.holowave.ui.screens.LibraryScreen
 import io.github.x80070006.holowave.ui.screens.LyricsScreen
 import io.github.x80070006.holowave.ui.screens.NowPlayingScreen
 import io.github.x80070006.holowave.ui.screens.PlayerCallbacks
+import io.github.x80070006.holowave.ui.screens.SearchScreen
 import io.github.x80070006.holowave.ui.screens.SettingsScreen
 import io.github.x80070006.holowave.ui.screens.SourceFoldersScreen
 import io.github.x80070006.holowave.ui.screens.ThemePreviewScreen
@@ -86,6 +91,9 @@ fun HolowaveRoot(vm: MainViewModel) {
     val libraryState by vm.libraryState.collectAsStateWithLifecycle()
     val routes by vm.route.collectAsStateWithLifecycle()
     val tab by vm.tab.collectAsStateWithLifecycle()
+    val mainTab by vm.mainTab.collectAsStateWithLifecycle()
+    val homeFilter by vm.homeFilter.collectAsStateWithLifecycle()
+    val home by vm.home.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val results by vm.searchResults.collectAsStateWithLifecycle()
     val playback by vm.playback.collectAsStateWithLifecycle()
@@ -136,7 +144,7 @@ fun HolowaveRoot(vm: MainViewModel) {
         if (uri != null) vm.importLyrics(uri)
     }
 
-    BackHandler(enabled = playerOpen || lyricsOpen || routes.size > 1 || query.isNotEmpty()) { vm.back() }
+    BackHandler(enabled = playerOpen || lyricsOpen || routes.size > 1 || query.isNotEmpty() || mainTab != MainTab.HOME) { vm.back() }
 
     val onTrackMenu: (Track, String?) -> Unit = { t, key -> overlay = Overlay.TrackOptions(t, key) }
 
@@ -151,23 +159,74 @@ fun HolowaveRoot(vm: MainViewModel) {
                 label = "routes",
             ) { route ->
                 when (route) {
-                    Route.Library -> LibraryScreen(
-                        catalog = catalog,
-                        loading = libraryState is LibraryState.Loading || libraryState is LibraryState.Idle,
-                        filtered = settings.sourceFolders.isNotEmpty(),
-                        scan = scan,
-                        tab = tab, query = query, results = results, playback = playback,
-                        bottomPadding = miniHeight,
-                        cb = LibraryCallbacks(
-                            onTab = vm::selectTab,
-                            onQuery = vm::setQuery,
-                            onOpen = { kind, key -> vm.open(Route.Detail(kind, key)) },
-                            onPlay = { list, i, shuffle -> vm.play(list, i, shuffle) },
-                            onTrackMenu = onTrackMenu,
-                            onCreatePlaylist = { overlay = Overlay.NewPlaylist(null) },
-                            onSettings = { vm.open(Route.Settings) },
-                        ),
-                    )
+                    Route.Library -> AnimatedContent(
+                        targetState = mainTab,
+                        transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
+                        label = "tabs",
+                    ) { t ->
+                        when (t) {
+                            MainTab.HOME -> HomeScreen(
+                                home = home, filter = homeFilter, onFilter = vm::setHomeFilter,
+                                libraryEmpty = catalog.tracks.isEmpty(),
+                                loading = libraryState is LibraryState.Loading || libraryState is LibraryState.Idle,
+                                scan = scan, bottomPadding = miniHeight,
+                                onOpen = { kind, key -> vm.open(Route.Detail(kind, key)) },
+                                onPlay = { list, i -> vm.play(list, i) },
+                                onSeeAll = { vm.selectMainTab(MainTab.LIBRARY) },
+                                onChooseFolders = { vm.selectMainTab(MainTab.SETTINGS); vm.open(Route.SourceFolders) },
+                                onScan = vm::scanStorage,
+                            )
+                            MainTab.SEARCH -> SearchScreen(
+                                query = query, results = results, playback = playback, bottomPadding = miniHeight,
+                                onQuery = vm::setQuery,
+                                onPlay = { list, i -> vm.play(list, i) },
+                                onTrackMenu = { t -> onTrackMenu(t, null) },
+                            )
+                            MainTab.LIBRARY -> LibraryScreen(
+                                catalog = catalog,
+                                loading = libraryState is LibraryState.Loading || libraryState is LibraryState.Idle,
+                                filtered = settings.sourceFolders.isNotEmpty(),
+                                scan = scan,
+                                tab = tab, playback = playback,
+                                bottomPadding = miniHeight,
+                                cb = LibraryCallbacks(
+                                    onTab = vm::selectTab,
+                                    onOpen = { kind, key -> vm.open(Route.Detail(kind, key)) },
+                                    onPlay = { list, i, shuffle -> vm.play(list, i, shuffle) },
+                                    onTrackMenu = onTrackMenu,
+                                    onCreatePlaylist = { overlay = Overlay.NewPlaylist(null) },
+                                    onSearch = { vm.selectMainTab(MainTab.SEARCH) },
+                                    onChooseFolders = { vm.selectMainTab(MainTab.SETTINGS); vm.open(Route.SourceFolders) },
+                                ),
+                            )
+                            MainTab.SETTINGS -> SettingsScreen(
+                                settings = settings,
+                                trackCount = catalog.tracks.size,
+                                storedLyrics = remember(prefetch, lyrics) { vm.storedLyricsCount() },
+                                prefetch = prefetch,
+                                bottomPadding = miniHeight,
+                                onBack = null,
+                                onOnlineLyrics = vm::setOnlineLyrics,
+                                onSpinning = vm::setSpinningRecord,
+                                onPrefetch = vm::prefetchAllLyrics,
+                                onCancelPrefetch = vm::cancelPrefetch,
+                                onClearLyrics = vm::clearDownloadedLyrics,
+                                scan = scan,
+                                onScan = vm::scanStorage,
+                                onStopScan = vm::cancelScan,
+                                onSourceFolders = { vm.open(Route.SourceFolders) },
+                                onVideoContainers = onVideoContainers,
+                                listenCount = listenCount,
+                                onRecordHistory = vm::setRecordHistory,
+                                onExportHistory = { runCatching { exportHistory.launch("holowave-historique.json") } },
+                                onClearHistory = { confirmClearHistory = true },
+                                onPreviewThemes = { vm.open(Route.ThemePreview) },
+                                onTheme = vm::setTheme,
+                                onMode = vm::setMode,
+                                onMonoAccent = vm::setMonoAccent,
+                            )
+                        }
+                    }
                     is Route.Detail -> {
                         val collection = remember(catalog, route) { vm.collection(route.kind, route.key) }
                         DetailScreen(
@@ -182,32 +241,6 @@ fun HolowaveRoot(vm: MainViewModel) {
                             } else null,
                         )
                     }
-                    Route.Settings -> SettingsScreen(
-                        settings = settings,
-                        trackCount = catalog.tracks.size,
-                        storedLyrics = remember(prefetch, lyrics) { vm.storedLyricsCount() },
-                        prefetch = prefetch,
-                        bottomPadding = miniHeight,
-                        onBack = { vm.back() },
-                        onOnlineLyrics = vm::setOnlineLyrics,
-                        onSpinning = vm::setSpinningRecord,
-                        onPrefetch = vm::prefetchAllLyrics,
-                        onCancelPrefetch = vm::cancelPrefetch,
-                        onClearLyrics = vm::clearDownloadedLyrics,
-                        scan = scan,
-                        onScan = vm::scanStorage,
-                        onStopScan = vm::cancelScan,
-                        onSourceFolders = { vm.open(Route.SourceFolders) },
-                        onVideoContainers = onVideoContainers,
-                        listenCount = listenCount,
-                        onRecordHistory = vm::setRecordHistory,
-                        onExportHistory = { runCatching { exportHistory.launch("holowave-historique.json") } },
-                        onClearHistory = { confirmClearHistory = true },
-                        onPreviewThemes = { vm.open(Route.ThemePreview) },
-                        onTheme = vm::setTheme,
-                        onMode = vm::setMode,
-                        onMonoAccent = vm::setMonoAccent,
-                    )
                     Route.ThemePreview -> ThemePreviewScreen(bottomPadding = miniHeight, onBack = { vm.back() }, onApply = vm::setTheme)
                     Route.SourceFolders -> {
                         val tree by vm.folderTree.collectAsStateWithLifecycle()
@@ -236,25 +269,27 @@ fun HolowaveRoot(vm: MainViewModel) {
                 Modifier
                     .fillMaxWidth()
                     .windowInsetsTopHeight(WindowInsets.statusBars)
-                    .background(Brush.verticalGradient(listOf(Deco.Ink, Deco.Ink.copy(alpha = 0.85f)))),
+                    .background(Brush.verticalGradient(listOf(Deco.Ink.copy(alpha = 0.85f), Color.Transparent))),
             )
 
             AnimatedVisibility(
-                visible = hasTrack && !playerOpen,
+                visible = !playerOpen && !lyricsOpen,
                 modifier = Modifier.align(Alignment.BottomCenter),
-                enter = slideInVertically { it } + fadeIn(),
-                exit = slideOutVertically { it } + fadeOut(),
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(150)),
             ) {
-                MiniPlayer(
-                    track = current, playback = playback, position = position, spin = settings.spinningRecord,
-                    onOpen = { vm.openPlayer(true) }, onToggle = vm.player::togglePlay, onNext = vm.player::next,
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(bottom = 8.dp)
-                        .onSizeChanged { miniHeight.intValue = with(density) { it.height.toDp().value.toInt() } + 16 },
-                )
+                Column(Modifier.onSizeChanged { miniHeight.intValue = with(density) { it.height.toDp().value.toInt() } }) {
+                    AnimatedVisibility(visible = hasTrack, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                        MiniPlayer(
+                            track = current, playback = playback, position = position,
+                            onOpen = { vm.openPlayer(true) }, onToggle = vm.player::togglePlay,
+                            onNext = vm.player::next, onPrevious = vm.player::previous,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
+                    HoloBottomBar(mainTab, vm::selectMainTab)
+                }
             }
-            if (!hasTrack) LaunchedEffect(Unit) { miniHeight.intValue = 0 }
 
             AnimatedVisibility(
                 visible = playerOpen,

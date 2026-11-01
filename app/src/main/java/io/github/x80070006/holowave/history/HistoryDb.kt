@@ -53,6 +53,10 @@ interface ListenDao {
     @Query("SELECT * FROM listens ORDER BY id LIMIT :limit OFFSET :offset")
     suspend fun page(limit: Int, offset: Int): List<ListenEntity>
 
+    /** Most recently played tracks, newest first, one entry per track. */
+    @Query("SELECT trackKey FROM listens GROUP BY trackKey ORDER BY MAX(startedAt) DESC LIMIT :limit")
+    fun recentKeys(limit: Int): Flow<List<String>>
+
     @Query("DELETE FROM listens")
     suspend fun deleteAll()
 }

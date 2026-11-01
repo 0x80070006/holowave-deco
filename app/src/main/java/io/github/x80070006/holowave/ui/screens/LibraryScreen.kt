@@ -71,15 +71,16 @@ import io.github.x80070006.holowave.ui.theme.Deco
 import io.github.x80070006.holowave.ui.theme.Look
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
+import io.github.x80070006.holowave.ui.theme.HoloTheme
 
 class LibraryCallbacks(
     val onTab: (LibraryTab) -> Unit,
-    val onQuery: (String) -> Unit,
     val onOpen: (CollectionKind, String) -> Unit,
     val onPlay: (List<Track>, Int, Boolean) -> Unit,
     val onTrackMenu: (Track, String?) -> Unit,
     val onCreatePlaylist: () -> Unit,
-    val onSettings: () -> Unit,
+    val onSearch: () -> Unit,
+    val onChooseFolders: () -> Unit,
 )
 
 @Composable
@@ -89,15 +90,10 @@ fun LibraryScreen(
     filtered: Boolean,
     scan: ScanProgress?,
     tab: LibraryTab,
-    query: String,
-    results: List<Track>,
     playback: PlaybackState,
     bottomPadding: State<Int>,
     cb: LibraryCallbacks,
 ) {
-    var searching by rememberSaveable { mutableStateOf(false) }
-    val searchActive = searching || query.isNotEmpty()
-
     LazyVerticalGrid(
         columns = GridCells.Adaptive(150.dp),
         modifier = Modifier.fillMaxSize(),
@@ -106,22 +102,9 @@ fun LibraryScreen(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         full("header") {
-            Header(
-                trackCount = catalog.tracks.size,
-                onSearch = { searching = !searching; if (!searching) cb.onQuery("") },
-                onSettings = cb.onSettings,
-            )
+            Header(trackCount = catalog.tracks.size, onSearch = cb.onSearch)
         }
         if (scan != null && scan.running) full("scan") { ScanBanner(scan) }
-        full("search") {
-            AnimatedVisibility(searchActive) { SearchField(query, cb.onQuery) }
-        }
-
-        if (searchActive && query.isNotBlank()) {
-            searchResults(results, playback, cb)
-            return@LazyVerticalGrid
-        }
-
         full("tabs") {
             TabsRow(LibraryTab.entries.map { it.label }, tab.ordinal, { cb.onTab(LibraryTab.entries[it]) }, Modifier.padding(top = 4.dp, bottom = 10.dp))
         }
@@ -134,7 +117,7 @@ fun LibraryScreen(
                     EmptyState(
                         "Rien dans ces dossiers",
                         "Les dossiers sources choisis ne contiennent aucun morceau. Modifiez la sélection dans les réglages.",
-                    ) { DecoButton("Dossiers sources", cb.onSettings, filled = false) }
+                    ) { DecoButton("Dossiers sources", cb.onChooseFolders, filled = false) }
                 } else {
                     EmptyState(
                         "La scène est vide",
@@ -228,92 +211,22 @@ private fun LazyGridScope.playlistsTab(catalog: Catalog, cb: LibraryCallbacks) {
     }
 }
 
-private fun LazyGridScope.searchResults(results: List<Track>, playback: PlaybackState, cb: LibraryCallbacks) {
-    if (results.isEmpty()) {
-        full("no-results") { EmptyState("Rien à l'affiche", "Aucun titre, artiste ou album ne correspond à cette recherche.") }
-        return
-    }
-    full("results-label") { SectionLabel("${results.size} résultat${if (results.size > 1) "s" else ""}", Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp)) }
-    items(results, key = { "s" + it.id }, span = { GridItemSpan(maxLineSpan) }) { t ->
-        TrackRow(
-            t, t.id == playback.currentId, playback.isPlaying,
-            { cb.onPlay(results, results.indexOf(t), false) }, { cb.onTrackMenu(t, null) },
-            Modifier.bleed(Gutter),
-        )
-    }
-}
-
 @Composable
-private fun Header(trackCount: Int, onSearch: () -> Unit, onSettings: () -> Unit) {
-    if (!Look.ornate) {
-        Row(
-            Modifier.fillMaxWidth().statusBarsPadding().padding(start = 24.dp, end = 8.dp, top = 14.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Holowave", style = DecoType.Display, color = Deco.Cream)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    if (trackCount > 0) "$trackCount titres sur l'appareil" else "Votre musique, hors ligne",
-                    style = DecoType.Small, color = Deco.CreamDim,
-                )
-            }
-            DecoIconButton(DecoIcons.Search, "Rechercher", onSearch, tint = Deco.Cream)
-            DecoIconButton(DecoIcons.Tune, "Réglages", onSettings, tint = Deco.Cream)
-        }
-        return
-    }
-    Box(Modifier.fillMaxWidth()) {
-        Sunburst(Modifier.matchParentSize(), rays = 29, origin = Offset(0.5f, 0.92f), spreadDegrees = 170f, alpha = 0.10f)
-        Column(Modifier.statusBarsPadding().padding(top = 4.dp, bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                DecoIconButton(DecoIcons.Search, "Rechercher", onSearch, tint = Deco.Gold)
-                Spacer(Modifier.weight(1f))
-                DecoIconButton(DecoIcons.Tune, "Réglages", onSettings, tint = Deco.Gold)
-            }
-            Text(
-                "HOLOWAVE",
-                style = DecoType.Marquee.copy(brush = Deco.goldBrush),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(start = 9.dp), // letter spacing trails the last glyph
-            )
-            Spacer(Modifier.height(10.dp))
-            DecoDivider(Modifier.width(220.dp))
-            Spacer(Modifier.height(10.dp))
-            Text(
-                if (trackCount > 0) "SALON D'ÉCOUTE  ·  $trackCount TITRES" else "SALON D'ÉCOUTE",
-                style = DecoType.Caps, color = Deco.CreamDim,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SearchField(query: String, onQuery: (String) -> Unit) {
-    val focus = remember { FocusRequester() }
-    val shape = remember(Appearance.colors) { decoShape(4.dp) }
+private fun Header(trackCount: Int, onSearch: () -> Unit) {
+    val c = HoloTheme.colors
     Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-            .then(if (Look.ornate) Modifier.border(1.dp, Deco.Gold.copy(alpha = 0.6f), shape) else Modifier.background(Deco.TealDeep, shape))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().statusBarsPadding().padding(start = 24.dp, end = 8.dp, top = 14.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(DecoIcons.Search, null, Modifier.size(18.dp), tint = Deco.Gold)
-        Spacer(Modifier.width(12.dp))
-        Box(Modifier.weight(1f)) {
-            if (query.isEmpty()) Text("Titre, artiste, album…", style = DecoType.Body, color = Deco.Muted)
-            BasicTextField(
-                query, onQuery,
-                singleLine = true,
-                textStyle = DecoType.Body.copy(color = Deco.Cream),
-                cursorBrush = SolidColor(Deco.Gold),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        Column(Modifier.weight(1f)) {
+            Text("Bibliothèque", style = DecoType.Display, color = c.text)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (trackCount > 0) "$trackCount titres sur l'appareil" else "Votre musique, hors ligne",
+                style = DecoType.Small, color = c.textSecondary,
             )
         }
-        if (query.isNotEmpty()) DecoIconButton(DecoIcons.Close, "Effacer", { onQuery("") }, size = 28.dp, iconSize = 16.dp, tint = Deco.CreamDim)
+        DecoIconButton(DecoIcons.Search, "Rechercher", onSearch, tint = c.text)
     }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 }
+

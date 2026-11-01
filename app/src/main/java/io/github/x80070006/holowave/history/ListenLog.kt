@@ -26,6 +26,8 @@ class ListenLog(private val context: Context, private val db: HolowaveDb, privat
 
     val count: Flow<Int> = db.listens().count()
 
+    fun recentKeys(limit: Int): Flow<List<String>> = db.listens().recentKeys(limit)
+
     fun record(subject: ListenSubject, listen: Listen) {
         val cal = Calendar.getInstance().apply { timeInMillis = listen.startedAt }
         val entity = ListenEntity(
