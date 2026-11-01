@@ -5,14 +5,13 @@ import android.net.Uri
 import android.util.AtomicFile
 import android.util.Log
 import io.github.x80070006.holowave.data.Track
+import io.github.x80070006.holowave.data.TrackKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
-import java.security.MessageDigest
-import java.util.Locale
 
 sealed interface LyricsLookup {
     data class Available(val lyrics: Lyrics) : LyricsLookup
@@ -173,12 +172,7 @@ class LyricsRepository(
         private const val MISSING_TTL_MS = 14L * 24 * 3600 * 1000
 
         /** Stable identity that survives a MediaStore re-index (ids can change, tags do not). */
-        fun keyOf(track: Track): String {
-            val identity = listOf(track.artist, track.title, track.album)
-                .joinToString("\u001F") { it.trim().lowercase(Locale.ROOT) } + "\u001F" + (track.durationMs / 2000)
-            val digest = MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8))
-            return digest.take(16).joinToString("") { "%02x".format(it) }
-        }
+        fun keyOf(track: Track): String = TrackKey.of(track)
 
         private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
             val out = java.io.ByteArrayOutputStream()

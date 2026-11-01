@@ -23,6 +23,7 @@ data class Track(
     /** WebM / 3GP / MP4 holding only sound: Android files them under videos. */
     val inVideoIndex: Boolean = false,
     val mime: String = "",
+    val source: TrackSource = TrackSource.LOCAL,
 ) {
     /** False for containers neither Android nor Media3 can decode (WMA, AIFF, APE…). */
     val playable: Boolean get() = AudioSupport.isPlayable(mime)

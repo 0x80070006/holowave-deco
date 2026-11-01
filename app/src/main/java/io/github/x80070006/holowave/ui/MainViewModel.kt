@@ -147,6 +147,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     val scan = app.library.scan
+    val listenCount: StateFlow<Int> = app.history.count.stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     fun onPermissionGranted() {
         app.library.start()
@@ -299,6 +300,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         app.settings.setVideoContainers(enabled)
         app.library.refresh()
         if (enabled) app.library.scanStorage(settings.value.sourceFolders)
+    }
+
+    fun setRecordHistory(enabled: Boolean) = app.settings.setRecordHistory(enabled)
+
+    /** Writes the whole listening journal to a file the user picked, as JSON. */
+    fun exportHistory(target: Uri) {
+        viewModelScope.launch {
+            val resolver = getApplication<Application>().contentResolver
+            val written = runCatching {
+                resolver.openOutputStream(target, "wt")?.use { app.history.export(it) } ?: -1
+            }.getOrDefault(-1)
+            _messages.value = if (written >= 0) "Historique exporté ($written écoute${if (written > 1) "s" else ""})" else "Export impossible"
+        }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            app.history.clear()
+            _messages.value = "Historique d'écoute effacé"
+        }
     }
 
     fun includeAllFolders() = app.settings.setSourceFolders(emptySet())

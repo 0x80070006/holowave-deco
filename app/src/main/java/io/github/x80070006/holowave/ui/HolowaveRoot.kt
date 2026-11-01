@@ -96,6 +96,11 @@ fun HolowaveRoot(vm: MainViewModel) {
     val prefetch by vm.prefetch.collectAsStateWithLifecycle()
     val message by vm.messages.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
+    val listenCount by vm.listenCount.collectAsStateWithLifecycle()
+    var confirmClearHistory by remember { mutableStateOf(false) }
+    val exportHistory = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) vm.exportHistory(uri)
+    }
 
     val context = LocalContext.current
     val videoPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO else null
@@ -192,6 +197,10 @@ fun HolowaveRoot(vm: MainViewModel) {
                         onStopScan = vm::cancelScan,
                         onSourceFolders = { vm.open(Route.SourceFolders) },
                         onVideoContainers = onVideoContainers,
+                        listenCount = listenCount,
+                        onRecordHistory = vm::setRecordHistory,
+                        onExportHistory = { runCatching { exportHistory.launch("holowave-historique.json") } },
+                        onClearHistory = { confirmClearHistory = true },
                     )
                     Route.SourceFolders -> {
                         val tree by vm.folderTree.collectAsStateWithLifecycle()
@@ -295,6 +304,14 @@ fun HolowaveRoot(vm: MainViewModel) {
                     vm.consumeMessage()
                 }
             }
+        }
+
+        if (confirmClearHistory) {
+            ConfirmDialog(
+                "Effacer l'historique ?", "Les $listenCount écoutes enregistrées seront supprimées définitivement. Vos playlists et favoris ne changent pas.", "Effacer",
+                onConfirm = { vm.clearHistory() },
+                onDismiss = { confirmClearHistory = false },
+            )
         }
 
         when (val o = overlay) {

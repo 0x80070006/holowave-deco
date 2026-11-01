@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.data.Track
+import io.github.x80070006.holowave.data.TrackSource
 import io.github.x80070006.holowave.data.TrackCollection
 import io.github.x80070006.holowave.data.formatDuration
 import io.github.x80070006.holowave.ui.theme.Deco
@@ -97,8 +98,11 @@ fun TrackRow(
                     Spacer(Modifier.width(8.dp))
                 }
                 Text(
-                    if (track.playable) "${track.artist}  ·  ${formatDuration(track.durationMs)}"
-                    else "Format non pris en charge  ·  ${track.artist}",
+                    when {
+                        !track.playable -> "Format non pris en charge  ·  ${track.artist}"
+                        track.source == TrackSource.LOCAL -> "${track.artist}  ·  ${formatDuration(track.durationMs)}"
+                        else -> "NouTube  ·  ${track.artist}  ·  ${formatDuration(track.durationMs)}"
+                    },
                     style = DecoType.Small, color = if (track.playable) Deco.CreamDim else Deco.Copper, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }

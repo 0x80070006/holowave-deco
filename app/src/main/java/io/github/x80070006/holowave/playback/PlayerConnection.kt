@@ -11,6 +11,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import io.github.x80070006.holowave.data.Track
+import io.github.x80070006.holowave.history.PlayerListenRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -203,7 +204,7 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
                 .setArtworkUri(t.uri)
                 .setIsPlayable(true)
                 .setIsBrowsable(false)
-                .setExtras(Bundle.EMPTY)
+                .setExtras(Bundle().apply { putInt(PlayerListenRecorder.EXTRA_SOURCE, t.source.code) })
                 .build(),
         )
         .build()

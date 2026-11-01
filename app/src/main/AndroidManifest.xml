@@ -17,6 +17,11 @@
     <!-- Only used for the optional synced-lyrics lookup on lrclib.net (HTTPS). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Lets HOLOWAVE tell which app owns a downloaded file (NouTube) and open it by intent. -->
+    <queries>
+        <package android:name="jp.nonbili.noutube" />
+    </queries>
+
     <application
         android:name=".HolowaveApp"
         android:allowBackup="false"

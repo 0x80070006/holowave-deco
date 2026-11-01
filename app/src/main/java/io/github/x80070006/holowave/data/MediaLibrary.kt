@@ -122,6 +122,7 @@ class MediaLibrary(
             MediaStore.Audio.Media.DATE_ADDED,
             MediaStore.Audio.Media.VOLUME_NAME,
             MediaStore.Audio.Media.MIME_TYPE,
+            MediaStore.Audio.Media.OWNER_PACKAGE_NAME,
         )
         // Selection is constant: no user input is ever concatenated into SQL.
         // Files registered but not analysed yet have NULL type/duration: keep them, the player
@@ -146,6 +147,7 @@ class MediaLibrary(
             val iAdded = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
             val iVolume = c.getColumnIndexOrThrow(MediaStore.Audio.Media.VOLUME_NAME)
             val iMime = c.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val iOwner = c.getColumnIndexOrThrow(MediaStore.Audio.Media.OWNER_PACKAGE_NAME)
             while (c.moveToNext() && tracks.size < MAX_TRACKS) {
                 val path = c.getString(iPath).orEmpty().trimEnd('/')
                 tracks += Track(
@@ -163,6 +165,7 @@ class MediaLibrary(
                     volume = c.getString(iVolume) ?: SourceFolders.PRIMARY,
                     dateAdded = c.getLong(iAdded),
                     mime = c.getString(iMime).orEmpty(),
+                    source = TrackSource.fromOwner(c.getString(iOwner)),
                 )
             }
         }
@@ -187,6 +190,7 @@ class MediaLibrary(
             MediaStore.Video.Media.VOLUME_NAME,
             MediaStore.Video.Media.DISPLAY_NAME,
             MediaStore.Video.Media.MIME_TYPE,
+            MediaStore.Video.Media.OWNER_PACKAGE_NAME,
         )
         val selection = "(${MediaStore.Video.Media.WIDTH} IS NULL OR ${MediaStore.Video.Media.WIDTH} = 0)" +
             " AND ${MediaStore.Video.Media.MIME_TYPE} IN (?, ?, ?, ?, ?)" +
@@ -216,6 +220,7 @@ class MediaLibrary(
                         dateAdded = c.getLong(6),
                         inVideoIndex = true,
                         mime = c.getString(9).orEmpty(),
+                        source = TrackSource.fromOwner(c.getString(10)),
                     )
                 }
             }

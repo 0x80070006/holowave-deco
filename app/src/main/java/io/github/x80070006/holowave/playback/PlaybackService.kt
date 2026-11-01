@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.MoreExecutors
 import io.github.x80070006.holowave.HolowaveApp
 import io.github.x80070006.holowave.MainActivity
 import io.github.x80070006.holowave.R
+import io.github.x80070006.holowave.history.PlayerListenRecorder
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -49,6 +50,7 @@ class PlaybackService : MediaSessionService() {
     private val artExecutor: ListeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor())
     private val favorites get() = (application as HolowaveApp).playlists
+    private var recorder: PlayerListenRecorder? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -88,6 +90,10 @@ class PlaybackService : MediaSessionService() {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = refreshButtons()
         })
         scope.launch { favorites.state.collect { refreshButtons() } }
+
+        val app = application as HolowaveApp
+        recorder = PlayerListenRecorder(player, app.history, enabled = { app.settings.state.value.recordHistory })
+            .also { it.attach() }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -98,6 +104,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        recorder?.detach()
+        recorder = null
         scope.cancel()
         session?.run {
             player.release()

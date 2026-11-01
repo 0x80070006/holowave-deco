@@ -3,6 +3,12 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ksp)
+}
+
+// Room schemas are committed so every future migration can be tested against the real history.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 val keystoreProps = Properties().apply {
@@ -18,8 +24,8 @@ android {
         applicationId = "io.github.x80070006.holowave"
         minSdk = 29
         targetSdk = 36
-        versionCode = 23
-        versionName = "2.2.1"
+        versionCode = 24
+        versionName = "3.0.0-dev"
     }
 
     signingConfigs {
@@ -73,6 +79,9 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
 

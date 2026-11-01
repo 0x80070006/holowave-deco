@@ -14,6 +14,8 @@ data class AppSettings(
     val sourceFolders: Set<String> = emptySet(),
     /** Also list sound-only WebM / 3GP files, which Android files under videos. */
     val videoContainers: Boolean = false,
+    /** Keep a private, on-device journal of what is played (taste learning, exportable, erasable). */
+    val recordHistory: Boolean = true,
 )
 
 class Settings(context: Context) {
@@ -26,6 +28,7 @@ class Settings(context: Context) {
             sourceFolders = prefs.getStringSet(KEY_FOLDERS, null).orEmpty()
                 .mapNotNull(SourceFolders::normalize).take(SourceFolders.MAX_SELECTED).toSet(),
             videoContainers = prefs.getBoolean(KEY_VIDEO_CONTAINERS, false),
+            recordHistory = prefs.getBoolean(KEY_RECORD_HISTORY, true),
         )
     )
     val state: StateFlow<AppSettings> = _state.asStateFlow()
@@ -52,6 +55,11 @@ class Settings(context: Context) {
         _state.value = _state.value.copy(videoContainers = enabled)
     }
 
+    fun setRecordHistory(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_RECORD_HISTORY, enabled).apply()
+        _state.value = _state.value.copy(recordHistory = enabled)
+    }
+
     /** True only the first time it is called: the very first launch gets a full storage scan. */
     fun consumeFirstScan(): Boolean {
         if (prefs.getBoolean(KEY_FIRST_SCAN_DONE, false)) return false
@@ -65,5 +73,6 @@ class Settings(context: Context) {
         const val KEY_FOLDERS = "source_folders"
         const val KEY_FIRST_SCAN_DONE = "first_scan_done"
         const val KEY_VIDEO_CONTAINERS = "video_containers"
+        const val KEY_RECORD_HISTORY = "record_history"
     }
 }

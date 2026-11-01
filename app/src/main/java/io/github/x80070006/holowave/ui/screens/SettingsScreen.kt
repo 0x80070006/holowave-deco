@@ -64,6 +64,10 @@ fun SettingsScreen(
     onStopScan: () -> Unit,
     onSourceFolders: () -> Unit,
     onVideoContainers: (Boolean) -> Unit,
+    listenCount: Int,
+    onRecordHistory: (Boolean) -> Unit,
+    onExportHistory: () -> Unit,
+    onClearHistory: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
         item {
@@ -163,6 +167,30 @@ fun SettingsScreen(
                     "seuls les fichiers sans image sont affichés, vos vraies vidéos restent ignorées. Désactiver rend l'autorisation à Android.",
                 settings.videoContainers, onVideoContainers,
             )
+        }
+
+        item { Section("Historique d'écoute") }
+        item {
+            ToggleRow(
+                "Enregistrer mes écoutes",
+                "Garde sur l'appareil ce que vous écoutez, quand et jusqu'où : c'est ce qui permettra de proposer des mixes à votre goût. " +
+                    "Rien n'est envoyé, rien n'est sauvegardé dans le cloud.",
+                settings.recordHistory, onRecordHistory,
+            )
+        }
+        item {
+            Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                Text(
+                    "$listenCount écoute${if (listenCount > 1) "s" else ""} enregistrée${if (listenCount > 1) "s" else ""}",
+                    style = DecoType.Title, color = Deco.Cream,
+                )
+                Spacer(Modifier.height(12.dp))
+                Row {
+                    DecoButton("Exporter", onExportHistory, icon = DecoIcons.Import, filled = false, enabled = listenCount > 0)
+                    Spacer(Modifier.width(12.dp))
+                    DecoButton("Effacer", onClearHistory, icon = DecoIcons.Trash, filled = false, enabled = listenCount > 0)
+                }
+            }
         }
 
         item { Section("Confidentialité") }
