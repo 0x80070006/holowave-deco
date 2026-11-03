@@ -111,6 +111,8 @@ abstract class StreamedDao {
     }
 }
 
+data class TasteRow(val trackKey: String, val startedAt: Long, val outcome: Int, val hour: Int)
+
 @Dao
 interface ListenDao {
     @Insert suspend fun insert(listen: ListenEntity)
@@ -124,6 +126,10 @@ interface ListenDao {
     /** Most recently played tracks, newest first, one entry per track. */
     @Query("SELECT trackKey FROM listens GROUP BY trackKey ORDER BY MAX(startedAt) DESC LIMIT :limit")
     fun recentKeys(limit: Int): Flow<List<String>>
+
+    /** The light columns the taste engine needs, newest first. */
+    @Query("SELECT trackKey, startedAt, outcome, hour FROM listens ORDER BY startedAt DESC LIMIT :limit")
+    suspend fun taste(limit: Int): List<TasteRow>
 
     @Query("DELETE FROM listens")
     suspend fun deleteAll()

@@ -40,6 +40,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Installs next to the release build instead of replacing it (and its data).
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -85,6 +90,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
+    implementation(libs.androidx.webkit)
 
     testImplementation(libs.junit)
     testImplementation(libs.org.json)

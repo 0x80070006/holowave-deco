@@ -33,6 +33,8 @@ data class PlaybackState(
     val artist: String = "",
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,
+    /** The whole queue was played to its end. */
+    val ended: Boolean = false,
     val shuffle: Boolean = false,
     val repeat: RepeatMode = RepeatMode.OFF,
     val durationMs: Long = 0L,
@@ -197,6 +199,7 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
             artist = item?.mediaMetadata?.artist?.toString().orEmpty(),
             isPlaying = p.isPlaying,
             isBuffering = p.playbackState == Player.STATE_BUFFERING,
+            ended = p.playbackState == Player.STATE_ENDED,
             shuffle = p.shuffleModeEnabled,
             repeat = when (p.repeatMode) {
                 Player.REPEAT_MODE_ALL -> RepeatMode.ALL

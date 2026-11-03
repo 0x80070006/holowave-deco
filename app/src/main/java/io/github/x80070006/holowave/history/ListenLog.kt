@@ -28,6 +28,11 @@ class ListenLog(private val context: Context, private val db: HolowaveDb, privat
 
     fun recentKeys(limit: Int): Flow<List<String>> = db.listens().recentKeys(limit)
 
+    /** What the taste engine learns from: the last [limit] listens, reduced to four columns. */
+    suspend fun taste(limit: Int = 20_000): List<io.github.x80070006.holowave.recommend.ListenRow> = withContext(Dispatchers.IO) {
+        db.listens().taste(limit).map { io.github.x80070006.holowave.recommend.ListenRow(it.trackKey, it.startedAt, it.outcome, it.hour) }
+    }
+
     fun record(subject: ListenSubject, listen: Listen) {
         val cal = Calendar.getInstance().apply { timeInMillis = listen.startedAt }
         val entity = ListenEntity(

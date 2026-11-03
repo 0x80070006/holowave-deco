@@ -1,0 +1,10 @@
+{
+  "name": "holowave-tube-scripts",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Scripts injected in YouTube Music, adapted from NouTube (AGPL-3.0). See ../NOTICE.md.",
+  "scripts": {
+    "build": "esbuild --bundle src/content/main.ts --minify --target=chrome100 --outfile=../app/src/main/assets/tube/main.js"
+  },
+  "devDependencies": { "esbuild": "^0.28.2", "es-toolkit": "^1.39.3" }
+}

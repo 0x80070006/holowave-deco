@@ -31,6 +31,7 @@ import io.github.x80070006.holowave.HolowaveApp
 import io.github.x80070006.holowave.MainActivity
 import io.github.x80070006.holowave.R
 import io.github.x80070006.holowave.history.PlayerListenRecorder
+import io.github.x80070006.holowave.tube.TubePlayer
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -51,6 +52,7 @@ class PlaybackService : MediaSessionService() {
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor())
     private val favorites get() = (application as HolowaveApp).playlists
     private var recorder: PlayerListenRecorder? = null
+    private var tubeSession: MediaSession? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -86,6 +88,16 @@ class PlaybackService : MediaSessionService() {
             .setCallback(SessionCallback())
             .build()
 
+        // YouTube Music, played by the embedded page, gets its own session in the same service:
+        // one notification area, one set of lock screen and Bluetooth controls.
+        val tube = TubePlayer((application as HolowaveApp).tubeHost, scope)
+        tubeSession = MediaSession.Builder(this, tube)
+            .setId("tube")
+            .setSessionActivity(openApp)
+            .setCallback(TubeSessionCallback())
+            .build()
+            .also { addSession(it) }
+
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = refreshButtons()
         })
@@ -111,6 +123,8 @@ class PlaybackService : MediaSessionService() {
             player.release()
             release()
         }
+        tubeSession?.run { player.release(); release() }
+        tubeSession = null
         session = null
         artExecutor.shutdownNow()
         super.onDestroy()
@@ -132,6 +146,13 @@ class PlaybackService : MediaSessionService() {
                 .setSessionCommand(TOGGLE_FAVORITE)
                 .build(),
         )
+    }
+
+    /** Same trust rule as the local session: only this app, System UI, Bluetooth and the platform. */
+    private inner class TubeSessionCallback : MediaSession.Callback {
+        override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult =
+            if (!controller.isTrusted && controller.packageName != packageName) MediaSession.ConnectionResult.reject()
+            else MediaSession.ConnectionResult.AcceptedResultBuilder(session).build()
     }
 
     private inner class SessionCallback : MediaSession.Callback {

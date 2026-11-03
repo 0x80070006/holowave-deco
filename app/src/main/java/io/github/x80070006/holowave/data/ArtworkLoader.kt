@@ -38,7 +38,8 @@ class ArtworkLoader(private val resolver: ContentResolver) {
         return withContext(Dispatchers.IO) {
             decodePermits.withPermit {
                 val bitmap = try {
-                    resolver.loadThumbnail(uri, Size(size, size), null)
+                    // Covers of files taken from videos carry black bands: they are cut off.
+                    resolver.loadThumbnail(uri, Size(size, size), null).let(Letterbox::trim)
                 } catch (_: FileNotFoundException) {
                     null
                 } catch (_: Exception) {

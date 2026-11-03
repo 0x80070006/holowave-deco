@@ -2,6 +2,14 @@ package io.github.x80070006.holowave.ui
 
 import android.app.Application
 import android.net.Uri
+import io.github.x80070006.holowave.playback.SourceKind
+import io.github.x80070006.holowave.recommend.FlowEngine
+import io.github.x80070006.holowave.recommend.FlowVariant
+import io.github.x80070006.holowave.recommend.MixPlan
+import io.github.x80070006.holowave.recommend.Shelf
+import io.github.x80070006.holowave.recommend.ShelfInputs
+import io.github.x80070006.holowave.recommend.Shelves
+import io.github.x80070006.holowave.stream.NouTubeBridge
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.x80070006.holowave.HolowaveApp
@@ -21,7 +29,6 @@ import io.github.x80070006.holowave.data.TrackCollection
 import io.github.x80070006.holowave.data.TrackKey
 import io.github.x80070006.holowave.data.TrackSource
 import io.github.x80070006.holowave.lyrics.LyricsLookup
-import io.github.x80070006.holowave.stream.NouTubeBridge
 import io.github.x80070006.holowave.ui.theme.ModePref
 import io.github.x80070006.holowave.ui.theme.MotionPref
 import io.github.x80070006.holowave.ui.theme.MonoAccent
@@ -40,6 +47,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.Normalizer
 import java.util.Locale
 
@@ -73,6 +81,8 @@ data class HomeData(
     val addedAlbums: List<TrackCollection> = emptyList(),
     /** Last thing played: its cover colours the top of the screen. */
     val lastTrack: Track? = null,
+    /** NouTube chip: every song heard on YouTube Music, most recent first. */
+    val streams: List<StreamedTrack> = emptyList(),
 )
 
 sealed interface Route {
@@ -81,6 +91,7 @@ sealed interface Route {
     data class Detail(val kind: CollectionKind, val key: String) : Route
     data object SourceFolders : Route
     data object ThemePreview : Route
+    data object YoutubeAccount : Route
 }
 
 data class Catalog(
@@ -113,6 +124,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val libraryState = app.library.state
     val playback = app.player.state
     val position = app.player.position
+
+    /** What the app follows right now: local files, or a song played by NouTube. */
+    val sources = app.sources
+    val tube = app.tubeHost
+
+    // Declared before the init block that watches the queue: initializers run in order.
+    private val _flow = MutableStateFlow<FlowVariant?>(null)
+    /** The Flow currently feeding the queue, or null when the user plays something of their own. */
+    val flowVariant: StateFlow<FlowVariant?> = _flow.asStateFlow()
+    private var refilling = false
+
+    val youtubeSignedIn = app.tubeHost.loggedIn
+    val streamActive: StateFlow<Boolean> = combine(sources.active, sources.now) { kind, now ->
+        kind == SourceKind.NOUTUBE && now.hasTrack
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Position of the NouTube song, refreshed 4 times a second while one is playing. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val streamPosition: StateFlow<Long> = streamActive.transformLatest { active ->
+        if (!active) {
+            emit(0L)
+            return@transformLatest
+        }
+        while (true) {
+            emit(sources.source(SourceKind.NOUTUBE).position())
+            kotlinx.coroutines.delay(250)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+
+    fun openInNouTube(): Boolean {
+        val s = sources.now.value
+        val uri = NouTubeBridge.searchUri("${s.artist} ${s.title}")
+        return NouTubeBridge.open(app, uri)
+    }
 
     private val _route = MutableStateFlow<List<Route>>(listOf(Route.Library))
     val route: StateFlow<List<Route>> = _route.asStateFlow()
@@ -180,7 +225,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val home: StateFlow<HomeData> = combine(catalog, app.history.recentKeys(60), _homeFilter, streamed) { c, keys, filter, streams ->
         val allowed: (Track) -> Boolean = when (filter) {
-            HomeFilter.NOUTUBE -> { t -> t.source == TrackSource.NOUTUBE }
+            HomeFilter.NOUTUBE -> { _ -> false }
             HomeFilter.LOCAL -> { t -> t.source == TrackSource.LOCAL }
             else -> { _ -> true }
         }
@@ -203,8 +248,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val tiles = ArrayList<TrackCollection>()
         c.favorites?.takeIf { it.tracks.any(allowed) && filter != HomeFilter.NOUTUBE }?.let { tiles += it }
         (fromRecent + added).forEach { a -> if (tiles.size < 8 && tiles.none { it.key == a.key && it.kind == a.kind }) tiles += a }
-        HomeData(recent.take(20), tiles, added, recentLocal.firstOrNull())
+        HomeData(recent.take(20), tiles, added, recentLocal.firstOrNull(), if (filter == HomeFilter.NOUTUBE) streams.sortedWith(compareByDescending<StreamedTrack> { it.plays }.thenByDescending { it.lastSeen }) else emptyList())
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, HomeData())
+
+    /** The rows of the "Tout" chip, rebuilt when the library, the YouTube list or the history change. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val shelves: StateFlow<List<Shelf>> = combine(catalog, streamed, app.history.count) { c, s, _ -> c to s }
+        .transformLatest { (c, s) ->
+            kotlinx.coroutines.delay(300)
+            val stats = FlowEngine.aggregate(app.history.taste())
+            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            emit(
+                withContext(Dispatchers.Default) {
+                    Shelves.build(ShelfInputs(c.tracks, c.albums, c.artists, c.playlists, c.folders, c.favorites, s, stats, System.currentTimeMillis(), hour))
+                },
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Plays a row from the song that was tapped; YouTube songs and files follow each other. */
+    fun playShelf(shelf: Shelf, index: Int) {
+        _flow.value = null
+        playMix(shelf.songs, index)
+    }
 
     private class LibraryInputs(val c: Catalog, val tab: LibraryTab, val sort: LibrarySort, val filter: String)
 
@@ -231,8 +297,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 LibrarySorting.tracks(i.c.tracks.filter { LibrarySorting.matches(f, it.title, it.artist, it.album) }, i.sort, rankOf),
             )
             LibraryTab.NOUTUBE -> {
-                val items = i.c.tracks.filter { it.source == TrackSource.NOUTUBE }.map { MixedItem.Local(it) } +
-                    streams.map { MixedItem.Stream(it) }
+                val items: List<MixedItem> = streams.map { MixedItem.Stream(it) }
                 val kept = items.filter {
                     when (it) {
                         is MixedItem.Local -> LibrarySorting.matches(f, it.track.title, it.track.artist, it.track.album)
@@ -273,6 +338,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         player.connect()
+        watchMixEnds()
         viewModelScope.launch {
             player.errors.collect { title ->
                 _messages.value = "Lecture impossible" + (if (title.isNotBlank()) " : « $title »" else "") + " — format non pris en charge ou fichier abîmé"
@@ -381,9 +447,147 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ------------------------------------------------------------ flow
+
+
+    fun startFlow(variant: FlowVariant = FlowVariant.MIX) {
+        viewModelScope.launch {
+            val picked = pickFlow(variant, 30, emptySet())
+            if (picked.isEmpty()) {
+                _messages.value = if (catalog.value.tracks.isEmpty()) "Votre bibliothèque est vide" else "Pas assez de titres pour ce Flow"
+                return@launch
+            }
+            _flow.value = variant
+            playMix(picked)
+        }
+    }
+
+    private suspend fun pickFlow(variant: FlowVariant, count: Int, exclude: Set<Long>): List<MixedItem> = withContext(Dispatchers.Default) {
+        val stats = FlowEngine.aggregate(app.history.taste())
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        FlowEngine.pickMixed(
+            catalog.value.tracks, streamed.value, stats, variant, System.currentTimeMillis(), hour, count,
+            kotlin.random.Random.Default, exclude = exclude,
+        )
+    }
+
+    // ------------------------------------------------------------ mixed queue
+    // Files of the device and YouTube songs in one queue: runs of files go to the local player,
+    // each YouTube song to the embedded page; the next run starts when the previous one ends.
+
+    private var plan: MixPlan? = null
+    private var planIndex = 0
+    private var planRunEnd = 0
+    private var handledEnd = -1
+
+    fun playMix(items: List<MixedItem>, start: Int = 0) {
+        if (items.isEmpty()) return
+        plan = MixPlan(items)
+        handledEnd = -1
+        startItem(start.coerceIn(0, items.lastIndex))
+    }
+
+    private fun startItem(i: Int) {
+        val p = plan ?: return
+        val item = p.items.getOrNull(i) ?: return
+        planIndex = i
+        when (item) {
+            is MixedItem.Local -> {
+                planRunEnd = p.runEnd(i)
+                player.play(p.localTracks(i, planRunEnd), 0)
+            }
+            is MixedItem.Stream -> {
+                planRunEnd = i
+                item.track.videoId?.let { app.tubeHost.watch(it) }
+            }
+        }
+        if (_flow.value != null && p.items.size - i <= 4) refillPlan()
+    }
+
+    private fun refillPlan() {
+        val variant = _flow.value ?: return
+        if (refilling) return
+        refilling = true
+        viewModelScope.launch {
+            try {
+                val p = plan ?: return@launch
+                val have = p.items.filterIsInstance<MixedItem.Local>().map { it.track.id }.toSet()
+                val more = pickFlow(variant, 20, have)
+                if (more.isNotEmpty()) plan = MixPlan(p.items + more)
+            } finally {
+                refilling = false
+            }
+        }
+    }
+
+    /** The local player played its last song of the run, or a YouTube song ended: go on with the plan. */
+    private fun watchMixEnds() {
+        viewModelScope.launch {
+            playback.collect { p ->
+                val pl = plan ?: return@collect
+                if (p.ended && sources.active.value == SourceKind.LOCAL && handledEnd != planIndex) {
+                    handledEnd = planIndex
+                    pl.after(planRunEnd)?.let { startItem(it) }
+                }
+            }
+        }
+        viewModelScope.launch {
+            app.youtubeEnded.collect {
+                val pl = plan ?: return@collect
+                if (pl.items.getOrNull(planIndex) is MixedItem.Stream) pl.after(planIndex)?.let { startItem(it) }
+            }
+        }
+    }
+
+    /** Next and previous that cross from local files to a YouTube song and back. */
+    fun next() {
+        val pl = plan
+        if (pl == null) {
+            sources.activeSource.next()
+            return
+        }
+        val onYoutube = pl.items.getOrNull(planIndex) is MixedItem.Stream
+        val lastOfRun = playback.value.let { it.queueIds.isEmpty() || it.queueIndex >= it.queueIds.size - 1 }
+        if (onYoutube || lastOfRun) {
+            pl.after(planRunEnd)?.let { startItem(it) } ?: sources.activeSource.next()
+        } else {
+            player.next()
+        }
+    }
+
+    fun previous() {
+        val pl = plan
+        if (pl == null) {
+            sources.activeSource.previous()
+            return
+        }
+        val onYoutube = pl.items.getOrNull(planIndex) is MixedItem.Stream
+        val firstOfRun = playback.value.queueIndex <= 0
+        // Like any player: the first press restarts what is playing, a press right after goes back.
+        if ((onYoutube || firstOfRun) && sources.activeSource.position() < 4_000) {
+            pl.before(planIndex)?.let { startItem(it) } ?: sources.activeSource.previous()
+        } else {
+            sources.activeSource.previous()
+        }
+    }
+
+    /** A song heard on YouTube Music: played by the embedded page when its id is known, found by a search otherwise. */
+    fun playStream(track: StreamedTrack) {
+        _flow.value = null
+        plan = null
+        val id = track.videoId
+        if (id != null) app.tubeHost.watch(id)
+        else {
+            app.tubeHost.open(NouTubeBridge.searchUri("${track.artist} ${track.title}").toString())
+            open(Route.YoutubeAccount)
+        }
+    }
+
     // ------------------------------------------------------------ playback
 
     fun play(tracks: List<Track>, index: Int, shuffle: Boolean = false) {
+        _flow.value = null
+        plan = null
         player.play(tracks, if (shuffle) (tracks.indices).random() else index, shuffle)
     }
 

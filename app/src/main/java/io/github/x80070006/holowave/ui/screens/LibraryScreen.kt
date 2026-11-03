@@ -348,12 +348,15 @@ fun StreamRow(track: StreamedTrack, onClick: () -> Unit) {
             Text(track.title, style = DecoType.Title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SourceBadge("Streaming")
+                SourceBadge("YouTube")
                 Spacer(Modifier.width(8.dp))
-                Text(track.artist, style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    track.artist + if (track.plays > 1) "  ·  ${track.plays} écoutes" else "",
+                    style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
         }
-        Icon(DecoIcons.OpenOut, "Écouter dans NouTube", Modifier.size(22.dp), tint = c.textSecondary)
+        Icon(DecoIcons.Play, "Lire", Modifier.size(22.dp), tint = c.textSecondary)
         Spacer(Modifier.width(8.dp))
     }
 }

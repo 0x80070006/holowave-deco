@@ -9,3 +9,6 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+
+# tube-scripts build tooling
+tube-scripts/node_modules/

@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-15433F?labelColor=0A0C0C" alt="Kotlin · Compose">
   <img src="https://img.shields.io/badge/Media3-ExoPlayer-15433F?labelColor=0A0C0C" alt="Media3">
   <img src="https://img.shields.io/badge/traqueurs-0-D8B26E?labelColor=0A0C0C" alt="0 traqueur">
-  <img src="https://img.shields.io/badge/licence-MIT-D8B26E?labelColor=0A0C0C" alt="MIT">
+  <img src="https://img.shields.io/badge/licence-AGPL--3.0-D8B26E?labelColor=0A0C0C" alt="AGPL-3.0">
 </p>
 
 <p align="center">
@@ -146,4 +146,4 @@ app/src/main/java/io/github/x80070006/holowave/
 
 ## Licence
 
-Code sous licence [MIT](LICENSE).
+Code sous licence [GNU AGPL-3.0](LICENSE), depuis la version 3. Les versions précédentes restent sous licence MIT. HOLOWAVE intègre du code de [NouTube](https://github.com/nonbili/NouTube) (AGPL-3.0) : voir [`NOTICE.md`](NOTICE.md).

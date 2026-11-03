@@ -213,25 +213,58 @@ fun SleepSheet(endsAt: Long?, onPick: (Int?) -> Unit, onDismiss: () -> Unit) {
 @Composable
 fun QueueSheet(items: List<Pair<Int, Track>>, currentIndex: Int, onSkip: (Int) -> Unit, onDismiss: () -> Unit) {
     val c = io.github.x80070006.holowave.ui.theme.HoloTheme.colors
+    val played = items.filter { it.first < currentIndex }
+    val current = items.firstOrNull { it.first == currentIndex }
+    val upcoming = items.filter { it.first > currentIndex }
+    // Opens on the song playing now, with what was already heard just above it.
+    val state = androidx.compose.foundation.lazy.rememberLazyListState(
+        initialFirstVisibleItemIndex = if (played.isEmpty()) 0 else played.size + 1,
+    )
     DecoSheet(onDismiss) {
         Text("File d'attente", style = DecoType.Headline, color = c.text, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
-        LazyColumn(Modifier.heightIn(max = 520.dp)) {
-            items(items, key = { it.first }) { (index, t) ->
-                val current = index == currentIndex
-                Row(
-                    Modifier.fillMaxWidth().clickable { onDismiss(); onSkip(index) }.padding(horizontal = 24.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CoverImage(t, Modifier.size(44.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)), size = 192)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(t.title, style = DecoType.Title, color = if (current) c.primary else c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(t.artist, style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    if (current) EqualizerBars(true, Modifier.size(14.dp), c.primary)
-                }
+        LazyColumn(Modifier.heightIn(max = 520.dp), state = state) {
+            if (played.isNotEmpty()) {
+                item(key = "h-played") { QueueHeader("Déjà écoutés") }
+                items(played, key = { "p" + it.first }) { (index, t) -> QueueRow(t, QueueRowKind.PLAYED) { onDismiss(); onSkip(index) } }
             }
+            if (current != null) {
+                item(key = "h-now") { QueueHeader("En cours") }
+                item(key = "n" + current.first) { QueueRow(current.second, QueueRowKind.NOW) {} }
+            }
+            item(key = "h-next") { QueueHeader(if (upcoming.isEmpty()) "À suivre : rien d'autre" else "À suivre · ${upcoming.size}") }
+            items(upcoming, key = { "u" + it.first }) { (index, t) -> QueueRow(t, QueueRowKind.NEXT) { onDismiss(); onSkip(index) } }
         }
+    }
+}
+
+private enum class QueueRowKind { PLAYED, NOW, NEXT }
+
+@Composable
+private fun QueueHeader(title: String) {
+    val c = io.github.x80070006.holowave.ui.theme.HoloTheme.colors
+    Text(title, style = DecoType.Caps, color = c.textSecondary, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 4.dp))
+}
+
+@Composable
+private fun QueueRow(t: Track, kind: QueueRowKind, onClick: () -> Unit) {
+    val c = io.github.x80070006.holowave.ui.theme.HoloTheme.colors
+    val now = kind == QueueRowKind.NOW
+    Row(
+        Modifier.fillMaxWidth()
+            .then(if (now) Modifier.background(c.surfaceHigh) else Modifier.clickable(onClick = onClick))
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CoverImage(t, Modifier.size(44.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)), size = 192)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                t.title, style = DecoType.Title, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                color = when (kind) { QueueRowKind.NOW -> c.primary; QueueRowKind.PLAYED -> c.textSecondary; QueueRowKind.NEXT -> c.text },
+            )
+            Text(t.artist, style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (now) EqualizerBars(true, Modifier.size(14.dp), c.primary)
     }
 }
 

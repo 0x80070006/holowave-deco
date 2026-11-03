@@ -12,6 +12,7 @@ class Heard(
     val album: String,
     val durationMs: Long,
     val artwork: Any? = null,
+    val videoId: String? = null,
 ) {
     val key: String get() = StreamKey.of(artist, title)
 }
@@ -39,7 +40,7 @@ class StreamCapture(private val onFinished: (Heard, Listen) -> Unit) {
             current = Heard(
                 cur.title, cur.artist, cur.album.ifBlank { meta.album },
                 if (cur.durationMs > 0) cur.durationMs else meta.durationMs,
-                cur.artwork ?: meta.artwork,
+                cur.artwork ?: meta.artwork, cur.videoId ?: meta.videoId,
             )
             return
         }

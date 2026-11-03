@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -57,6 +58,12 @@ import io.github.x80070006.holowave.ui.components.DecoSheet
 import io.github.x80070006.holowave.ui.components.LocalArtwork
 import io.github.x80070006.holowave.ui.components.HoloBottomBar
 import io.github.x80070006.holowave.ui.components.MiniPlayer
+import io.github.x80070006.holowave.ui.components.StreamMiniPlayer
+import io.github.x80070006.holowave.ui.screens.StreamNowPlayingScreen
+import io.github.x80070006.holowave.ui.screens.YoutubeAccountScreen
+import io.github.x80070006.holowave.ui.components.TubeSurface
+import io.github.x80070006.holowave.playback.SourceKind
+import io.github.x80070006.holowave.stream.NouTubeBridge
 import io.github.x80070006.holowave.ui.components.NameDialog
 import io.github.x80070006.holowave.ui.components.PlaylistPicker
 import io.github.x80070006.holowave.ui.components.QueueSheet
@@ -80,7 +87,6 @@ import io.github.x80070006.holowave.ui.screens.SourceFoldersScreen
 import io.github.x80070006.holowave.ui.screens.ThemePreviewScreen
 import io.github.x80070006.holowave.ui.theme.Deco
 import io.github.x80070006.holowave.stream.NotificationAccess
-import io.github.x80070006.holowave.stream.NouTubeBridge
 import io.github.x80070006.holowave.ui.theme.Appearance
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
@@ -110,6 +116,13 @@ fun HolowaveRoot(vm: MainViewModel) {
     val results by vm.searchResults.collectAsStateWithLifecycle()
     val playback by vm.playback.collectAsStateWithLifecycle()
     val position = vm.position.collectAsStateWithLifecycle()
+    val streamActive by vm.streamActive.collectAsStateWithLifecycle()
+    val flowVariant by vm.flowVariant.collectAsStateWithLifecycle()
+    val youtubeSignedIn by vm.youtubeSignedIn.collectAsStateWithLifecycle()
+    val importStatus by vm.tube.importStatus.collectAsStateWithLifecycle()
+    val shelves by vm.shelves.collectAsStateWithLifecycle()
+    val streamNow by vm.sources.now.collectAsStateWithLifecycle()
+    val streamPosition = vm.streamPosition.collectAsStateWithLifecycle()
     val current by vm.currentTrack.collectAsStateWithLifecycle()
     val lyrics by vm.lyrics.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -173,7 +186,7 @@ fun HolowaveRoot(vm: MainViewModel) {
     var overlay by remember { mutableStateOf<Overlay?>(null) }
     val miniHeight = remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val hasTrack = playback.currentId != null
+    val hasTrack = playback.currentId != null || streamActive
 
     val importLrc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importLyrics(uri)
@@ -186,6 +199,8 @@ fun HolowaveRoot(vm: MainViewModel) {
     CompositionLocalProvider(LocalArtwork provides vm.artwork) {
         CoverColorSync(current)
         Box(Modifier.fillMaxSize().background(Deco.Ink)) {
+            // Where the embedded YouTube Music page rests when no screen shows it; it keeps playing from there.
+            TubeSurface(vm.tube, Modifier.size(1.dp), anchor = true)
             AnimatedContent(
                 targetState = routes.last(),
                 transitionSpec = {
@@ -208,10 +223,15 @@ fun HolowaveRoot(vm: MainViewModel) {
                                 scan = scan, bottomPadding = miniHeight,
                                 onOpen = { kind, key -> vm.open(Route.Detail(kind, key)) },
                                 onPlay = { list, i -> vm.play(list, i) },
-                                onOpenStream = { vm.openInNouTube(it) },
+                                onOpenStream = { vm.playStream(it) },
                                 onSeeAll = { vm.selectMainTab(MainTab.LIBRARY) },
                                 onChooseFolders = { vm.selectMainTab(MainTab.SETTINGS); vm.open(Route.SourceFolders) },
                                 onScan = vm::scanStorage,
+                                flowActive = flowVariant, onFlow = vm::startFlow,
+                                tube = vm.tube, youtubeSignedIn = youtubeSignedIn,
+                                onSignIn = { vm.open(Route.YoutubeAccount) }, onImportTop = { vm.tube.importTop() },
+                                importStatus = importStatus,
+                                shelves = shelves, onPlayShelf = vm::playShelf,
                             )
                             MainTab.SEARCH -> SearchScreen(
                                 query = query, results = results, playback = playback, bottomPadding = miniHeight,
@@ -244,7 +264,7 @@ fun HolowaveRoot(vm: MainViewModel) {
                                     onSort = { overlay = Overlay.Sort },
                                     onToggleGrid = vm::toggleLibraryGrid,
                                     onChooseFolders = { vm.selectMainTab(MainTab.SETTINGS); vm.open(Route.SourceFolders) },
-                                    onOpenStream = { vm.openInNouTube(it) },
+                                    onOpenStream = { vm.playStream(it) },
                                     onNouTubeSettings = { vm.selectMainTab(MainTab.SETTINGS) },
                                 ),
                             )
@@ -274,6 +294,8 @@ fun HolowaveRoot(vm: MainViewModel) {
                                 onMonoAccent = vm::setMonoAccent,
                                 onCoverColors = vm::setCoverColors,
                                 onMotion = vm::setMotion,
+                                youtubeSignedIn = youtubeSignedIn,
+                                onYoutubeAccount = { vm.open(Route.YoutubeAccount) },
                                 nouTubeInstalled = nouTubeInstalled,
                                 accessGranted = accessGranted,
                                 streamedCount = streamedCount,
@@ -305,6 +327,10 @@ fun HolowaveRoot(vm: MainViewModel) {
                             } else null,
                         )
                     }
+                    Route.YoutubeAccount -> YoutubeAccountScreen(
+                        host = vm.tube, signedIn = youtubeSignedIn, bottomPadding = miniHeight.intValue,
+                        onBack = { vm.back() }, onSignIn = { vm.tube.openSignIn() }, onSignOut = { vm.tube.signOut() },
+                    )
                     Route.ThemePreview -> ThemePreviewScreen(bottomPadding = miniHeight, onBack = { vm.back() }, onApply = vm::setTheme)
                     Route.SourceFolders -> {
                         val tree by vm.folderTree.collectAsStateWithLifecycle()
@@ -344,12 +370,23 @@ fun HolowaveRoot(vm: MainViewModel) {
             ) {
                 Column(Modifier.onSizeChanged { miniHeight.intValue = with(density) { it.height.toDp().value.toInt() } }) {
                     AnimatedVisibility(visible = hasTrack, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-                        MiniPlayer(
-                            track = current, playback = playback, position = position,
-                            onOpen = { vm.openPlayer(true) }, onToggle = vm.player::togglePlay,
-                            onNext = vm.player::next, onPrevious = vm.player::previous,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
+                        if (streamActive) {
+                            val yt = vm.sources.source(SourceKind.NOUTUBE)
+                            StreamMiniPlayer(
+                                state = streamNow, position = streamPosition,
+                                onOpen = { vm.openPlayer(true) },
+                                onToggle = { if (streamNow.isPlaying) yt.pause() else yt.play() },
+                                onNext = vm::next, onPrevious = vm::previous,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        } else {
+                            MiniPlayer(
+                                track = current, playback = playback, position = position,
+                                onOpen = { vm.openPlayer(true) }, onToggle = vm.player::togglePlay,
+                                onNext = vm::next, onPrevious = vm::previous,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        }
                     }
                     HoloBottomBar(mainTab, vm::selectMainTab)
                 }
@@ -360,6 +397,19 @@ fun HolowaveRoot(vm: MainViewModel) {
                 enter = slideInVertically(tween(380)) { it } + fadeIn(tween(200)),
                 exit = slideOutVertically(tween(320)) { it } + fadeOut(tween(250)),
             ) {
+                if (streamActive) {
+                    val yt = vm.sources.source(SourceKind.NOUTUBE)
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    StreamNowPlayingScreen(
+                        state = streamNow, position = streamPosition,
+                        nouTubeAvailable = remember { NouTubeBridge.isInstalled(ctx) },
+                        onClose = { vm.openPlayer(false) },
+                        onToggle = { if (streamNow.isPlaying) yt.pause() else yt.play() },
+                        onNext = vm::next, onPrevious = vm::previous, onSeek = yt::seekTo,
+                        onOpenNouTube = { vm.openInNouTube() },
+                    )
+                    return@AnimatedVisibility
+                }
                 val upNext = remember(playback.queueIds, playback.queueIndex, catalog) {
                     if (playback.shuffle) emptyList()
                     else playback.queueIds.withIndex()
@@ -377,8 +427,8 @@ fun HolowaveRoot(vm: MainViewModel) {
                     cb = PlayerCallbacks(
                         onClose = { vm.openPlayer(false) },
                         onToggle = vm.player::togglePlay,
-                        onNext = vm.player::next,
-                        onPrevious = vm.player::previous,
+                        onNext = vm::next,
+                        onPrevious = vm::previous,
                         onSeek = vm.player::seekTo,
                         onShuffle = vm.player::toggleShuffle,
                         onRepeat = vm.player::cycleRepeat,

@@ -34,24 +34,7 @@ class NouTubeListenerService : NotificationListenerService() {
     private var sessions: MediaSessionManager? = null
     private var controller: MediaController? = null
 
-    private val capture = StreamCapture { heard, listen ->
-        val settings = app.settings.state.value
-        if (!settings.captureStreaming) return@StreamCapture
-        val now = System.currentTimeMillis()
-        // A song only enters the NouTube category once it was really listened to, not on a skip.
-        if (listen.listenedMs >= MIN_LISTEN_MS || listen.outcome == Outcome.COMPLETED) {
-            app.streamed.record(
-                StreamedSighting(heard.title, heard.artist, heard.album, heard.durationMs, null, heard.artwork as? Bitmap),
-                now, countPlay = true,
-            )
-        }
-        if (settings.recordHistory) {
-            app.history.record(
-                ListenSubject(StreamKey.of(heard.artist, heard.title), heard.title, heard.artist, heard.album, TrackSource.ONLINE),
-                listen,
-            )
-        }
-    }
+    private val capture = StreamCapture { heard, listen -> StreamSink(app, embedded = false).finished(heard, listen) }
 
     private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { list -> attach(list) }
 
@@ -95,6 +78,7 @@ class NouTubeListenerService : NotificationListenerService() {
         if (noutube?.sessionToken == controller?.sessionToken) return
         controller?.unregisterCallback(callback)
         controller = noutube
+        app.noutubeSource.attach(noutube)
         noutube?.let {
             it.registerCallback(callback, handler)
             announce(it.metadata)
@@ -106,6 +90,7 @@ class NouTubeListenerService : NotificationListenerService() {
         capture.stop(System.currentTimeMillis())
         controller?.unregisterCallback(callback)
         controller = null
+        app.noutubeSource.attach(null)
         runCatching { sessions?.removeOnActiveSessionsChangedListener(sessionsChanged) }
     }
 

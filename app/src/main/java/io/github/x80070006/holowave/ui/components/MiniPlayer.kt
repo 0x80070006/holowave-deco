@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import io.github.x80070006.holowave.data.Track
 import io.github.x80070006.holowave.playback.PlaybackState
+import io.github.x80070006.holowave.playback.SourceState
 import io.github.x80070006.holowave.ui.theme.DecoIcons
 import io.github.x80070006.holowave.ui.theme.DecoType
 import io.github.x80070006.holowave.ui.theme.HoloTheme
@@ -60,6 +61,45 @@ fun MiniPlayer(
     track: Track?,
     playback: PlaybackState,
     position: State<Long>,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    modifier: Modifier = Modifier,
+) = MiniPlayerCard(
+    title = track?.title ?: playback.title, artist = track?.artist ?: playback.artist,
+    isPlaying = playback.isPlaying, durationMs = playback.durationMs, position = position,
+    cover = { CoverImage(track, it, size = 192) },
+    badge = null,
+    onOpen = onOpen, onToggle = onToggle, onNext = onNext, onPrevious = onPrevious, modifier = modifier,
+)
+
+/** The same card for a song played by NouTube: its cover is a bitmap, and a source tag is shown. */
+@Composable
+fun StreamMiniPlayer(
+    state: SourceState,
+    position: State<Long>,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    modifier: Modifier = Modifier,
+) = MiniPlayerCard(
+    title = state.title, artist = state.artist, isPlaying = state.isPlaying, durationMs = state.durationMs, position = position,
+    cover = { StreamCover(state.artwork, state.artist + state.title, it) },
+    badge = "YouTube",
+    onOpen = onOpen, onToggle = onToggle, onNext = onNext, onPrevious = onPrevious, modifier = modifier,
+)
+
+@Composable
+private fun MiniPlayerCard(
+    title: String,
+    artist: String,
+    isPlaying: Boolean,
+    durationMs: Long,
+    position: State<Long>,
+    cover: @Composable (Modifier) -> Unit,
+    badge: String?,
     onOpen: () -> Unit,
     onToggle: () -> Unit,
     onNext: () -> Unit,
@@ -115,12 +155,18 @@ fun MiniPlayer(
             .semantics { contentDescription = "Ouvrir le lecteur. Glisser sur le côté pour changer de titre." },
     ) {
         Row(Modifier.padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-            CoverImage(track, Modifier.size(46.dp).clip(RoundedCornerShape(10.dp)), size = 192)
+            cover(Modifier.size(46.dp).clip(RoundedCornerShape(10.dp)))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(track?.title ?: playback.title, style = DecoType.Title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, style = DecoType.Title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(2.dp))
-                Text(track?.artist ?: playback.artist, style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (badge != null) {
+                        SourceBadge(badge)
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(artist, style = DecoType.Small, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
             Box(
                 Modifier.size(44.dp).clip(CircleShape).background(c.primary).clickable {
@@ -129,12 +175,12 @@ fun MiniPlayer(
                 },
                 contentAlignment = Alignment.Center,
             ) {
-                PlayPauseIcon(playback.isPlaying, c.onPrimary, Modifier.size(24.dp))
+                PlayPauseIcon(isPlaying, c.onPrimary, Modifier.size(24.dp))
             }
         }
         // Thin progress line along the bottom edge.
         Canvas(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).padding(horizontal = 12.dp)) {
-            val f = if (playback.durationMs > 0) (position.value.toFloat() / playback.durationMs).coerceIn(0f, 1f) else 0f
+            val f = if (durationMs > 0) (position.value.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
             val r = CornerRadius(size.height / 2)
             drawRoundRect(c.text.copy(alpha = 0.14f), Offset.Zero, Size(size.width, size.height), r)
             if (f > 0f) drawRoundRect(c.primary, Offset.Zero, Size(size.width * f, size.height), r)

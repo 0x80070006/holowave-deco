@@ -92,6 +92,8 @@ fun SettingsScreen(
     onClearStreamed: () -> Unit,
     onGetNouTube: () -> Unit,
     onMotion: (MotionPref) -> Unit,
+    youtubeSignedIn: Boolean,
+    onYoutubeAccount: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (bottomPadding.value + 32).dp)) {
         item {
@@ -165,6 +167,21 @@ fun SettingsScreen(
                         DecoButton("Effacer", onClearLyrics, icon = DecoIcons.Trash, filled = false)
                     }
                 }
+            }
+        }
+
+        item { Section("YouTube Music") }
+        item {
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onYoutubeAccount).padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Compte YouTube", style = DecoType.Title, color = Deco.Cream)
+                    Spacer(Modifier.height(4.dp))
+                    Text(if (youtubeSignedIn) "Connecté" else "Non connecté", style = DecoType.Small, color = Deco.Gold)
+                }
+                Icon(DecoIcons.Back, null, Modifier.size(20.dp).graphicsLayer { rotationZ = 180f }, tint = Deco.Gold)
             }
         }
 

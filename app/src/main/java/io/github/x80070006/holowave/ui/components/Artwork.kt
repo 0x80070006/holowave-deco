@@ -59,6 +59,19 @@ fun CoverImage(track: Track?, modifier: Modifier = Modifier, size: Int = 512, fa
     }
 }
 
+/** Cover of a streamed song: the bitmap NouTube published, or the generated label when there is none. */
+@Composable
+fun StreamCover(bitmap: android.graphics.Bitmap?, seed: String, modifier: Modifier = Modifier) {
+    val image = remember(bitmap) { bitmap?.asImageBitmap() }
+    Box(modifier.background(Deco.TealDeep), contentAlignment = Alignment.Center) {
+        if (image != null) {
+            Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        } else {
+            CoverPlaceholder(seed, Modifier.fillMaxSize())
+        }
+    }
+}
+
 /**
  * Generated "label" for tracks without artwork: a sunburst over one of the house
  * colours, picked from the album name so it stays stable between launches.
@@ -83,7 +96,7 @@ fun CoverPlaceholder(seed: String, modifier: Modifier = Modifier) {
 /** Cover of a streamed song: the small JPEG captured from NouTube, or a generated one. */
 @Composable
 fun StreamedCover(track: io.github.x80070006.holowave.data.StreamedTrack, modifier: Modifier = Modifier) {
-    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, track.artworkPath) {
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, track.artworkPath, track.lastSeen) {
         value = track.artworkPath?.let { path ->
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 runCatching { android.graphics.BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull()
