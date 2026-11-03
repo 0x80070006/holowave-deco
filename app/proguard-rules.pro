@@ -5,3 +5,8 @@
     public static int d(...);
     public static int i(...);
 }
+
+# The embedded YouTube Music page calls these methods by name (NouTubeI.*).
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}

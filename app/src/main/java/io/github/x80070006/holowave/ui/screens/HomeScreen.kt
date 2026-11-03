@@ -169,7 +169,7 @@ fun HomeScreen(
                         }
                     }
                 }
-                items(home.streams, key = { it.key }) { s -> StreamRow(s) { onOpenStream(s) } }
+                items(home.streams, key = { it.key }, contentType = { "stream" }) { s -> StreamRow(s) { onOpenStream(s) } }
             }
             libraryEmpty && !loading -> item {
                 EmptyState(

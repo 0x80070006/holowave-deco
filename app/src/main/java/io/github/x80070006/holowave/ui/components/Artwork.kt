@@ -93,19 +93,47 @@ fun CoverPlaceholder(seed: String, modifier: Modifier = Modifier) {
 }
 
 
-/** Cover of a streamed song: the small JPEG captured from NouTube, or a generated one. */
+/** Decoded covers of streamed songs, shared by every list, so scrolling back never decodes twice. */
+private object StreamedCovers {
+    private val cache = object : android.util.LruCache<String, androidx.compose.ui.graphics.ImageBitmap>(16 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: androidx.compose.ui.graphics.ImageBitmap) = value.width * value.height * 4
+    }
+
+    fun key(path: String, version: Long, size: Int) = "$path#$version@$size"
+    fun get(key: String) = cache.get(key)
+
+    /** Decodes at about [size] pixels (not the stored 384) to keep memory and decode time low. */
+    fun load(key: String, path: String, size: Int): androidx.compose.ui.graphics.ImageBitmap? {
+        cache.get(key)?.let { return it }
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(path, bounds)
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= size && bounds.outHeight / (sample * 2) >= size) sample *= 2
+        val bmp = android.graphics.BitmapFactory.decodeFile(path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+            ?: return null
+        return bmp.asImageBitmap().also { cache.put(key, it) }
+    }
+}
+
+/** Cover of a streamed song: the small JPEG kept on the device, or a generated one when there is none. */
 @Composable
-fun StreamedCover(track: io.github.x80070006.holowave.data.StreamedTrack, modifier: Modifier = Modifier) {
-    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, track.artworkPath, track.lastSeen) {
-        value = track.artworkPath?.let { path ->
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                runCatching { android.graphics.BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull()
+fun StreamedCover(track: io.github.x80070006.holowave.data.StreamedTrack, modifier: Modifier = Modifier, size: Int = 192) {
+    val path = track.artworkPath
+    val key = path?.let { StreamedCovers.key(it, track.lastSeen, size) }
+    // A cover already decoded shows on the first frame: no placeholder flashing while scrolling.
+    val bitmap by produceState(key?.let(StreamedCovers::get), key) {
+        if (value == null && key != null && path != null) {
+            value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { StreamedCovers.load(key, path, size) }.getOrNull()
             }
         }
     }
     Box(modifier.background(Deco.TealDeep), contentAlignment = Alignment.Center) {
         val b = bitmap
-        if (b != null) Image(b, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        else CoverPlaceholder(track.artist + track.title, Modifier.fillMaxSize())
+        when {
+            b != null -> Image(b, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            // Still loading: a plain tile, the generated label only for songs that really have no cover.
+            path == null -> CoverPlaceholder(track.artist + track.title, Modifier.fillMaxSize())
+        }
     }
 }
